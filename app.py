@@ -100,6 +100,28 @@ def _select_device():
     return torch.device("cpu")
 
 
+def _remap_legacy_keys(state_dict: dict) -> dict:
+    """Remap legacy conv_block keys to features.* format. See predict.py."""
+    if any(k.startswith("features.") for k in state_dict):
+        return state_dict
+    if not any(k.startswith("conv_block") for k in state_dict):
+        return state_dict
+
+    block_offsets = {"conv_block1": 0, "conv_block2": 8, "conv_block3": 16, "conv_block4": 24}
+    remapped = {}
+    for key, value in state_dict.items():
+        new_key = key
+        for block_name, offset in block_offsets.items():
+            if key.startswith(block_name + "."):
+                suffix = key[len(block_name) + 1:]
+                layer_idx = int(suffix.split(".")[0])
+                rest = ".".join(suffix.split(".")[1:])
+                new_key = f"features.{offset + layer_idx}.{rest}"
+                break
+        remapped[new_key] = value
+    return remapped
+
+
 @st.cache_resource
 def load_models():
     """Load both models once and cache them across Streamlit reruns."""
@@ -114,13 +136,18 @@ def load_models():
     cnn_candidates = [
         "custom_cnn_best.pth", "custom_cnn_final.pth",
         "custom_cnn_model.pth", "custom_cnn.pth",
+        "custom_cnn_best_cpufast.pth",
     ]
     for d in search_dirs:
         for c in cnn_candidates:
             p = os.path.join(d, c)
             if os.path.isfile(p):
                 state = torch.load(p, map_location=device, weights_only=True)
-                model_cnn.load_state_dict(state)
+                state = _remap_legacy_keys(state)
+                try:
+                    model_cnn.load_state_dict(state)
+                except RuntimeError:
+                    continue
                 model_cnn.to(device)
                 model_cnn.eval()
                 loaded["Custom CNN"] = model_cnn
@@ -139,7 +166,10 @@ def load_models():
             p = os.path.join(d, c)
             if os.path.isfile(p):
                 state = torch.load(p, map_location=device, weights_only=True)
-                model_mn.load_state_dict(state)
+                try:
+                    model_mn.load_state_dict(state)
+                except RuntimeError:
+                    continue
                 model_mn.to(device)
                 model_mn.eval()
                 loaded["MobileNetV2"] = model_mn
@@ -217,15 +247,20 @@ def main():
     # Input selection
     tab_upload, tab_cifar = st.tabs(["Upload Image", "CIFAR-10 Test Sample"])
 
-    image = None
-    true_label = None
+    # Persist image and label across Streamlit reruns using session state.
+    # Without this, button-loaded images would be lost when the user
+    # interacts with sidebar widgets (each interaction triggers a full rerun).
+    if "image" not in st.session_state:
+        st.session_state["image"] = None
+        st.session_state["true_label"] = None
 
     with tab_upload:
         uploaded = st.file_uploader(
             "Upload an image", type=["png", "jpg", "jpeg", "bmp", "tiff"],
         )
         if uploaded is not None:
-            image = Image.open(uploaded).convert("RGB")
+            st.session_state["image"] = Image.open(uploaded).convert("RGB")
+            st.session_state["true_label"] = None
 
     with tab_cifar:
         col1, col2 = st.columns([1, 3])
@@ -237,8 +272,8 @@ def main():
                     transform=transforms.ToTensor(),
                 )
                 tensor_img, label = dataset[sample_idx]
-                image = transforms.ToPILImage()(tensor_img)
-                true_label = CLASS_NAMES[label]
+                st.session_state["image"] = transforms.ToPILImage()(tensor_img)
+                st.session_state["true_label"] = CLASS_NAMES[label]
         with col2:
             if st.button("Random sample"):
                 dataset = torchvision.datasets.CIFAR10(
@@ -247,11 +282,13 @@ def main():
                 )
                 idx = np.random.randint(len(dataset))
                 tensor_img, label = dataset[idx]
-                image = transforms.ToPILImage()(tensor_img)
-                true_label = CLASS_NAMES[label]
+                st.session_state["image"] = transforms.ToPILImage()(tensor_img)
+                st.session_state["true_label"] = CLASS_NAMES[label]
                 st.info(f"Loaded random sample (index {idx})")
 
     # Display and classify
+    image = st.session_state["image"]
+    true_label = st.session_state["true_label"]
     if image is not None:
         cols = st.columns(1 + len(selected_models))
 

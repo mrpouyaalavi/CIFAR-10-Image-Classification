@@ -426,6 +426,32 @@ def _select_device():
     return torch.device("cpu")
 
 
+def _remap_legacy_keys(state_dict: dict) -> dict:
+    """
+    Remap state dict keys from legacy conv_block format to features.* format.
+
+    See predict.py for full documentation on the key-mapping logic.
+    """
+    if any(k.startswith("features.") for k in state_dict):
+        return state_dict
+    if not any(k.startswith("conv_block") for k in state_dict):
+        return state_dict
+
+    block_offsets = {"conv_block1": 0, "conv_block2": 8, "conv_block3": 16, "conv_block4": 24}
+    remapped = {}
+    for key, value in state_dict.items():
+        new_key = key
+        for block_name, offset in block_offsets.items():
+            if key.startswith(block_name + "."):
+                suffix = key[len(block_name) + 1:]
+                layer_idx = int(suffix.split(".")[0])
+                rest = ".".join(suffix.split(".")[1:])
+                new_key = f"features.{offset + layer_idx}.{rest}"
+                break
+        remapped[new_key] = value
+    return remapped
+
+
 def _load_model(name: str, device: torch.device):
     """Load a saved model from the standard checkpoint paths."""
     search_dirs = ["checkpoints", "models", "."]
@@ -450,7 +476,12 @@ def _load_model(name: str, device: torch.device):
             p = os.path.join(d, c)
             if os.path.isfile(p):
                 state = torch.load(p, map_location=device, weights_only=True)
-                model.load_state_dict(state)
+                if name == "custom_cnn":
+                    state = _remap_legacy_keys(state)
+                try:
+                    model.load_state_dict(state)
+                except RuntimeError:
+                    continue
                 model.to(device).eval()
                 print(f"Loaded {name} from {p}")
                 return model
