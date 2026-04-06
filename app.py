@@ -244,6 +244,14 @@ def main():
     st.sidebar.markdown(f"**Device:** `{device}`")
     st.sidebar.markdown(f"**Models loaded:** {len(loaded_models)}")
 
+    # Cache the CIFAR-10 test set so it is loaded once, not on every button click.
+    @st.cache_resource
+    def _load_cifar10_test():
+        return torchvision.datasets.CIFAR10(
+            root="./data", train=False, download=True,
+            transform=transforms.ToTensor(),
+        )
+
     # Input selection
     tab_upload, tab_cifar = st.tabs(["Upload Image", "CIFAR-10 Test Sample"])
 
@@ -267,19 +275,13 @@ def main():
         with col1:
             sample_idx = st.number_input("Image index (0-9999)", 0, 9999, 42)
             if st.button("Load sample"):
-                dataset = torchvision.datasets.CIFAR10(
-                    root="./data", train=False, download=True,
-                    transform=transforms.ToTensor(),
-                )
+                dataset = _load_cifar10_test()
                 tensor_img, label = dataset[sample_idx]
                 st.session_state["image"] = transforms.ToPILImage()(tensor_img)
                 st.session_state["true_label"] = CLASS_NAMES[label]
         with col2:
             if st.button("Random sample"):
-                dataset = torchvision.datasets.CIFAR10(
-                    root="./data", train=False, download=True,
-                    transform=transforms.ToTensor(),
-                )
+                dataset = _load_cifar10_test()
                 idx = np.random.randint(len(dataset))
                 tensor_img, label = dataset[idx]
                 st.session_state["image"] = transforms.ToPILImage()(tensor_img)

@@ -153,7 +153,7 @@ Both models consistently confuse visually similar classes — but MobileNetV2 ma
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  🧠  5 architectures: Custom CNN, MobileNetV2, ResNet-18, EfficientNet, ViT ║
+║  🧠  5 architectures benchmarked in notebook (CLI tools: CNN & MobileNetV2) ║
 ║  📈  Full training pipeline with cosine annealing LR & progressive unfreezing║
 ║  🎲  Advanced augmentation: RandomCrop, CutOut, MixUp, CutMix               ║
 ║  🔬  Grad-CAM interpretability — see what the model actually looks at        ║
