@@ -202,6 +202,58 @@ def select_device():
 #  Model Loading
 # ============================================================================
 
+def _remap_legacy_keys(state_dict: dict) -> dict:
+    """
+    Remap state dict keys from the legacy CustomCNN format to the current one.
+
+    Earlier versions of the notebook defined the CNN with separate named blocks
+    (conv_block1, conv_block2, ...), while the current architecture uses a
+    single nn.Sequential called 'features'. This function transparently maps
+    old checkpoint keys to the new format so both can be loaded.
+
+    Legacy key pattern:  conv_block1.0.weight -> features.0.weight
+                         conv_block2.0.weight -> features.8.weight  (offset by block)
+                         conv_block3.0.weight -> features.16.weight
+                         conv_block4.0.weight -> features.24.weight
+
+    Parameters:
+        state_dict: Raw state dict loaded from a .pth checkpoint.
+
+    Returns:
+        A remapped state dict compatible with the current CustomCNN architecture.
+    """
+    # If the state dict already uses 'features.*' keys, no remapping needed
+    if any(k.startswith("features.") for k in state_dict):
+        return state_dict
+
+    # Check if it uses the legacy 'conv_block*' naming
+    if not any(k.startswith("conv_block") for k in state_dict):
+        return state_dict
+
+    # Each conv block contains 8 layers: Conv, BN, ReLU, Conv, BN, ReLU, Pool, Dropout
+    # Block 4 contains 4 layers: Conv, BN, ReLU, AdaptiveAvgPool
+    block_offsets = {
+        "conv_block1": 0,   # layers 0-7
+        "conv_block2": 8,   # layers 8-15
+        "conv_block3": 16,  # layers 16-23
+        "conv_block4": 24,  # layers 24-27
+    }
+
+    remapped = {}
+    for key, value in state_dict.items():
+        new_key = key
+        for block_name, offset in block_offsets.items():
+            if key.startswith(block_name + "."):
+                suffix = key[len(block_name) + 1:]   # e.g., "0.weight"
+                layer_idx = int(suffix.split(".")[0])
+                rest = ".".join(suffix.split(".")[1:])
+                new_key = f"features.{offset + layer_idx}.{rest}"
+                break
+        remapped[new_key] = value
+
+    return remapped
+
+
 def load_model(name: str, device: torch.device) -> nn.Module:
     """
     Load a trained model from disk by searching standard checkpoint locations.
@@ -210,6 +262,11 @@ def load_model(name: str, device: torch.device) -> nn.Module:
     multiple naming conventions to handle checkpoints saved at different stages
     of experimentation. Only the state_dict is loaded (weights_only=True) to
     avoid running arbitrary code from untrusted .pth files.
+
+    Legacy checkpoint compatibility:
+        Earlier notebook versions used named blocks (conv_block1, conv_block2, ...)
+        while the current architecture uses a flat nn.Sequential. The loader
+        automatically remaps old-format keys so both checkpoint styles work.
 
     Parameters:
         name:   Model identifier — "custom_cnn" or "mobilenet".
@@ -244,7 +301,13 @@ def load_model(name: str, device: torch.device) -> nn.Module:
             p = os.path.join(d, c)
             if os.path.isfile(p):
                 state = torch.load(p, map_location=device, weights_only=True)
-                model.load_state_dict(state)
+                if name == "custom_cnn":
+                    state = _remap_legacy_keys(state)
+                try:
+                    model.load_state_dict(state)
+                except RuntimeError:
+                    # Keys don't match even after remapping — try next checkpoint
+                    continue
                 model.to(device).eval()
                 print(f"✓ Loaded {name} from {p}")
                 return model
