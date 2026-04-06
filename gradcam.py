@@ -308,7 +308,7 @@ def overlay_heatmap(
     heatmap_resized = np.array(
         PILImage.fromarray(
             (heatmap * 255).astype(np.uint8)
-        ).resize((w, h), resample=PILImage.BILINEAR)
+        ).resize((w, h), resample=PILImage.Resampling.BILINEAR)
     ).astype(np.float32) / 255.0
 
     # Apply jet colourmap: blue (low activation) -> red (high activation)
@@ -499,16 +499,20 @@ def _get_target_layer(model, name: str):
         spatial structure — making it ideal for Grad-CAM.
 
     For Custom CNN:
-        The last Conv2d in self.features (Block 4's 256->512 convolution).
+        Block 3's last Conv2d (features[22], the 256->256 conv) which
+        outputs an 8x8 feature map — a good balance between spatial
+        resolution and semantic richness. Block 4's Conv2d only produces
+        a 4x4 map (just 16 positions), which yields overly coarse heatmaps.
 
     For MobileNetV2:
         The final inverted residual block (model.features[-1]), which outputs
         1280-channel feature maps at 7x7 spatial resolution.
     """
     if name == "custom_cnn":
-        for layer in reversed(list(model.features)):
-            if isinstance(layer, nn.Conv2d):
-                return layer
+        # Block 3's last Conv2d at index 19 (256->256) outputs 8x8 spatial
+        # resolution, providing 64 meaningful positions for localisation.
+        # (Block 4's Conv2d at index 24 only outputs 4x4 — too coarse.)
+        return model.features[19]
     elif name == "mobilenet":
         return model.features[-1]
     raise RuntimeError("Could not find target layer")
