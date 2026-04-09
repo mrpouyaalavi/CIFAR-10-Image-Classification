@@ -17,11 +17,11 @@
 
 <br/>
 
-# CIFAR-10 Image Classification — Deep Learning from Scratch to Production
+# CIFAR-10 Image Classification — From Deep Learning Training to Deployment
 
-> **An end-to-end deep learning pipeline that designs, trains, and rigorously evaluates five architectures on the CIFAR-10 benchmark — proving that transfer learning with 200× fewer trainable parameters outperforms a fully-trained custom CNN by 30 percentage points.**
+> **An end-to-end deep learning project that designs, trains, and evaluates multiple architectures on the CIFAR-10 benchmark, demonstrating the efficiency of transfer learning compared with a custom CNN baseline.**
 
-This project is a comprehensive, portfolio-grade machine learning study that goes beyond model training. It includes data augmentation pipelines (RandomCrop, CutOut, MixUp, CutMix), cosine annealing LR scheduling, progressive unfreezing, INT8 model quantization, Grad-CAM interpretability visualizations, a CLI inference toolkit, and a Streamlit demo app — all documented across a 14-section Jupyter Notebook.
+This project is a comprehensive, portfolio-grade machine learning study that goes beyond model training. It includes data augmentation pipelines (RandomCrop, CutOut, MixUp, CutMix), cosine annealing learning rate scheduling, progressive unfreezing, INT8 model quantisation, Grad-CAM interpretability visualisations, a CLI inference toolkit, and a Streamlit demo app — all documented in a structured Jupyter Notebook.
 
 **[📓 Explore the Notebook](cifar10%20image%20classification.ipynb)** &nbsp;·&nbsp; **[🚀 Run the Demo](#-streamlit-demo-app)** &nbsp;·&nbsp; **[📊 Key Results](#-key-results--performance-benchmarks)**
 
