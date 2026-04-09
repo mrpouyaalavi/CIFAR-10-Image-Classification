@@ -23,7 +23,7 @@
 
 This project is a comprehensive, portfolio-grade machine learning study that goes beyond model training. It includes data augmentation pipelines (RandomCrop, CutOut, MixUp, CutMix), cosine annealing learning rate scheduling, progressive unfreezing, INT8 model quantisation, Grad-CAM interpretability visualisations, a CLI inference toolkit, and a Streamlit demo app — all documented in a structured Jupyter Notebook.
 
-**[📓 Explore the Notebook](cifar10%20image%20classification.ipynb)** &nbsp;·&nbsp; **[🚀 Run the Demo](#-streamlit-demo-app)** &nbsp;·&nbsp; **[📊 Key Results](#-key-results--performance-benchmarks)**
+**[📓 Explore the Notebook](cifar10%20image%20classification.ipynb)** &nbsp;·&nbsp; **[🚀 Live Demo](https://cifar10.pouyaalavi.dev)** &nbsp;·&nbsp; **[📊 Key Results](#-key-results--performance-benchmarks)**
 
 <br/>
 
