@@ -33,7 +33,9 @@ data/
 # ──────────────────────────────────────────────
 *.pth
 models/
-checkpoints/
+checkpoints/*
+!checkpoints/custom_cnn_best.pth
+!checkpoints/mobilenetv2_best.pth
 
 # ──────────────────────────────────────────────
 #  IDE / Editor
