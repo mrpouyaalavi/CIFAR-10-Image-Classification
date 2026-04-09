@@ -29,52 +29,252 @@ from model_utils import (
 )
 
 # ============================================================================
-#  Page Config & Custom CSS
+#  Page Config
 # ============================================================================
 
 st.set_page_config(
-    page_title="CIFAR-10 Classifier",
+    page_title="CIFAR-10 Classifier — Pouya Alavi",
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+# ============================================================================
+#  Custom CSS — Matches pouyaalavi.dev design system
+# ============================================================================
+#
+#  Design tokens from the portfolio:
+#    --bg:           #0a0a0f   (near-black)
+#    --surface:      #12121a   (card background)
+#    --surface-2:    #1a1a26   (elevated surface)
+#    --accent:       #7c3aed   (vivid purple)
+#    --accent-light: #a78bfa   (lighter purple)
+#    --secondary:    #38bdf8   (sky blue)
+#    --success:      #34d399   (emerald)
+#    --text:         #e8e8ed   (soft white)
+#    --text-muted:   #94a3b8   (slate)
+#    --border:       rgba(255,255,255,0.1)
+#    --font:         'Geist', 'Inter', system-ui, sans-serif
+
 st.markdown("""
 <style>
-    /* Tighten top padding */
-    .block-container { padding-top: 2rem; }
+    /* ── Import Geist-like font (Inter is the closest Google Font) ── */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-    /* Prediction card styling */
-    .pred-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 12px;
-        padding: 1.2rem;
-        color: white;
+    /* ── Global overrides ── */
+    html, body, [class*="stApp"] {
+        font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+    }
+
+    /* Remove default Streamlit padding */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+        max-width: 1100px !important;
+    }
+
+    /* ── Header area ── */
+    .app-header {
         text-align: center;
-        margin-bottom: 0.8rem;
+        padding: 2rem 0 1.5rem 0;
     }
-    .pred-card h2 { margin: 0; font-size: 1.6rem; }
-    .pred-card p { margin: 0.3rem 0 0 0; font-size: 0.95rem; opacity: 0.9; }
-
-    /* Correct prediction highlight */
-    .pred-correct {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    .app-header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        background: linear-gradient(135deg, #7c3aed 0%, #38bdf8 50%, #a78bfa 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.5rem;
+    }
+    .app-header p {
+        color: #94a3b8;
+        font-size: 1.05rem;
+        font-weight: 400;
+        line-height: 1.6;
+        max-width: 640px;
+        margin: 0 auto;
     }
 
-    /* Model info badges */
-    .model-badge {
+    /* ── Glass cards ── */
+    .glass-card {
+        background: linear-gradient(135deg, #12121ae6, #1a1a26b3);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        padding: 1.4rem;
+        margin-bottom: 1rem;
+        backdrop-filter: blur(12px);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-card:hover {
+        border-color: rgba(124, 58, 237, 0.3);
+        box-shadow: 0 8px 32px rgba(124, 58, 237, 0.08);
+    }
+
+    /* ── Prediction result card ── */
+    .pred-result {
+        background: linear-gradient(135deg, #12121ae6, #1a1a26b3);
+        border: 1px solid rgba(124, 58, 237, 0.3);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        margin-bottom: 1rem;
+        box-shadow: 0 0 20px rgba(124, 58, 237, 0.1);
+    }
+    .pred-result.correct {
+        border-color: rgba(52, 211, 153, 0.4);
+        box-shadow: 0 0 20px rgba(52, 211, 153, 0.1);
+    }
+    .pred-result .model-badge {
         display: inline-block;
-        padding: 0.25rem 0.7rem;
+        padding: 0.2rem 0.75rem;
         border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        margin-bottom: 0.6rem;
+    }
+    .badge-cnn {
+        background: rgba(124, 58, 237, 0.15);
+        color: #a78bfa;
+        border: 1px solid rgba(124, 58, 237, 0.3);
+    }
+    .badge-mn {
+        background: rgba(56, 189, 248, 0.15);
+        color: #38bdf8;
+        border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+    .pred-result .pred-class {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #e8e8ed;
+        letter-spacing: -0.01em;
+        margin: 0.3rem 0;
+    }
+    .pred-result .pred-conf {
+        font-size: 0.95rem;
+        color: #94a3b8;
+    }
+
+    /* ── Progress bars (top-k predictions) ── */
+    .stProgress > div > div {
+        background-color: rgba(124, 58, 237, 0.15) !important;
+        border-radius: 8px !important;
+    }
+    .stProgress > div > div > div {
+        background: linear-gradient(90deg, #7c3aed, #a78bfa) !important;
+        border-radius: 8px !important;
+    }
+
+    /* ── Sidebar styling ── */
+    section[data-testid="stSidebar"] {
+        background: #0d0d14 !important;
+        border-right: 1px solid rgba(255,255,255,0.06) !important;
+    }
+    section[data-testid="stSidebar"] .stMarkdown h2 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #e8e8ed;
+        letter-spacing: -0.01em;
+    }
+
+    /* ── Tab styling ── */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0;
+        background: rgba(255,255,255,0.03);
+        border-radius: 10px;
+        padding: 4px;
+        border: 1px solid rgba(255,255,255,0.06);
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px;
+        color: #94a3b8;
+        font-weight: 500;
+        font-size: 0.9rem;
+        padding: 0.5rem 1.2rem;
+    }
+    .stTabs [aria-selected="true"] {
+        background: rgba(124, 58, 237, 0.15) !important;
+        color: #a78bfa !important;
+    }
+    .stTabs [data-baseweb="tab-highlight"] {
+        background-color: transparent !important;
+    }
+    .stTabs [data-baseweb="tab-border"] {
+        display: none;
+    }
+
+    /* ── File uploader ── */
+    [data-testid="stFileUploader"] {
+        border: 2px dashed rgba(124, 58, 237, 0.25) !important;
+        border-radius: 12px !important;
+        background: rgba(124, 58, 237, 0.03) !important;
+    }
+
+    /* ── Buttons ── */
+    .stButton > button {
+        background: rgba(124, 58, 237, 0.12) !important;
+        color: #a78bfa !important;
+        border: 1px solid rgba(124, 58, 237, 0.3) !important;
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+        font-size: 0.85rem !important;
+        letter-spacing: 0.02em;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    .stButton > button:hover {
+        background: rgba(124, 58, 237, 0.25) !important;
+        border-color: rgba(124, 58, 237, 0.5) !important;
+        box-shadow: 0 0 20px rgba(124, 58, 237, 0.15) !important;
+        transform: translateY(-1px);
+    }
+
+    /* ── Info/Success/Error alerts ── */
+    .stAlert [data-testid="stNotification"] {
+        border-radius: 10px !important;
+    }
+
+    /* ── Image captions ── */
+    [data-testid="stImage"] {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    /* ── Dividers ── */
+    hr {
+        border-color: rgba(255,255,255,0.06) !important;
+    }
+
+    /* ── Section labels ── */
+    .section-label {
         font-size: 0.8rem;
         font-weight: 600;
-        margin-right: 0.4rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #94a3b8;
+        margin-bottom: 0.6rem;
     }
-    .badge-cnn { background: #e3f2fd; color: #1565c0; }
-    .badge-mn  { background: #fce4ec; color: #c62828; }
+
+    /* ── Footer link row ── */
+    .footer-links {
+        text-align: center;
+        padding: 2rem 0 1rem 0;
+        border-top: 1px solid rgba(255,255,255,0.06);
+        margin-top: 2rem;
+    }
+    .footer-links a {
+        color: #94a3b8;
+        text-decoration: none;
+        font-size: 0.85rem;
+        margin: 0 0.8rem;
+        transition: color 0.2s;
+    }
+    .footer-links a:hover {
+        color: #a78bfa;
+    }
 </style>
 """, unsafe_allow_html=True)
-
 
 # ============================================================================
 #  Model Loading (cached)
@@ -129,8 +329,7 @@ def render_sidebar(available_models: list[str], device: torch.device) -> dict:
 
     st.sidebar.markdown("---")
     st.sidebar.markdown(
-        "Built with [PyTorch](https://pytorch.org/) & "
-        "[Streamlit](https://streamlit.io/)  \n"
+        "[Portfolio](https://www.pouyaalavi.dev) · "
         "[GitHub](https://github.com/mrpouyaalavi/CIFAR-10-Image-Classification)"
     )
 
@@ -163,14 +362,14 @@ def render_predictions(
 
     # Prediction header card
     is_correct = true_label and top_class == true_label
-    card_class = "pred-card pred-correct" if is_correct else "pred-card"
+    card_class = "pred-result correct" if is_correct else "pred-result"
     badge = "badge-cnn" if model_name == "Custom CNN" else "badge-mn"
 
     st.markdown(
         f'<div class="{card_class}">'
-        f'<p><span class="model-badge {badge}">{model_name}</span></p>'
-        f'<h2>{top_class.upper()}</h2>'
-        f'<p>{top_conf:.1f}% confidence</p>'
+        f'<span class="model-badge {badge}">{model_name}</span>'
+        f'<div class="pred-class">{top_class.upper()}</div>'
+        f'<div class="pred-conf">{top_conf:.1f}% confidence</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -179,16 +378,16 @@ def render_predictions(
         if is_correct:
             st.success(f"Correct! True label: **{true_label}**")
         else:
-            st.error(f"Incorrect. True label: **{true_label}**")
+            st.error(f"Incorrect — True label: **{true_label}**")
 
     # Top-K bar chart
-    st.markdown(f"**Top-{top_k} Predictions**")
+    st.markdown(f'<div class="section-label">Top-{top_k} Predictions</div>', unsafe_allow_html=True)
     for cls, conf in preds:
         st.progress(conf / 100, text=f"{cls}: {conf:.1f}%")
 
     # Grad-CAM
     if show_gradcam:
-        st.markdown("**Grad-CAM Heatmap**")
+        st.markdown('<div class="section-label">Grad-CAM Heatmap</div>', unsafe_allow_html=True)
         with st.spinner("Computing Grad-CAM..."):
             overlay, heatmap, _, _ = compute_gradcam_overlay(
                 model, image, model_name, device, alpha=gradcam_alpha,
@@ -199,9 +398,11 @@ def render_predictions(
         with col_b:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots(figsize=(3, 3))
+            fig.patch.set_facecolor("#0a0a0f")
+            ax.set_facecolor("#0a0a0f")
             ax.imshow(heatmap, cmap="jet")
             ax.axis("off")
-            ax.set_title("Activation Map", fontsize=9)
+            ax.set_title("Activation Map", fontsize=9, color="#94a3b8", pad=8)
             st.pyplot(fig, use_container_width=True)
             plt.close(fig)
 
@@ -223,12 +424,14 @@ def _load_cifar10_test():
 # ============================================================================
 
 def main():
-    # Header
-    st.title("CIFAR-10 Image Classification")
+    # ── Header ──
     st.markdown(
-        "Compare a **Custom CNN** (trained from scratch) against **MobileNetV2** "
-        "(transfer learning) on image classification.  \n"
-        "Toggle **Grad-CAM** in the sidebar to see which image regions drive the prediction."
+        '<div class="app-header">'
+        '<h1>CIFAR-10 Image Classification</h1>'
+        '<p>Compare a Custom CNN trained from scratch against MobileNetV2 with '
+        'transfer learning — with Grad-CAM visual explanations.</p>'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
     # Load models
@@ -239,10 +442,6 @@ def main():
         st.error(
             "No model checkpoints found. Place `.pth` files in the "
             "`checkpoints/` or `models/` directory, then reload the app."
-        )
-        st.info(
-            "Run the training notebook first, or download pretrained weights "
-            "from the GitHub Releases page."
         )
         return
 
@@ -268,7 +467,7 @@ def main():
     with tab_cifar:
         col1, col2 = st.columns([1, 3])
         with col1:
-            sample_idx = st.number_input("Image index (0-9999)", 0, 9999, 42)
+            sample_idx = st.number_input("Image index (0–9999)", 0, 9999, 42)
             if st.button("Load sample"):
                 dataset = _load_cifar10_test()
                 tensor_img, label = dataset[sample_idx]
@@ -289,7 +488,13 @@ def main():
 
     if image is None:
         st.markdown("---")
-        st.info("Upload an image or load a CIFAR-10 sample to get started.")
+        st.markdown(
+            '<div class="glass-card" style="text-align:center; padding:3rem 1rem;">'
+            '<p style="color:#94a3b8; font-size:1rem; margin:0;">'
+            'Upload an image or load a CIFAR-10 sample to get started.</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
         return
 
     st.markdown("---")
@@ -328,6 +533,16 @@ def main():
                     settings["top_k"], settings["show_gradcam"],
                     settings["gradcam_alpha"], true_label,
                 )
+
+    # ── Footer ──
+    st.markdown(
+        '<div class="footer-links">'
+        '<a href="https://www.pouyaalavi.dev" target="_blank">Portfolio</a>'
+        '<a href="https://github.com/mrpouyaalavi/CIFAR-10-Image-Classification" target="_blank">GitHub</a>'
+        '<a href="https://linkedin.com/in/mrpouyaalavi" target="_blank">LinkedIn</a>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
 
 if __name__ == "__main__":
