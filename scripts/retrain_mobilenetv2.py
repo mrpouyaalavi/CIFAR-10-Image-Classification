@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -51,16 +52,15 @@ ROOT = Path(__file__).resolve().parent.parent
 CKPT_PATH = ROOT / "checkpoints" / "mobilenetv2_best.pth"
 HISTORY_PATH = ROOT / "results" / "mobilenetv2_training_history.json"
 
+# Make the shared model_utils.select_device() importable when running
+# this script directly (e.g. `python scripts/retrain_mobilenetv2.py`)
+# without polluting sys.path when retrain_mobilenetv2 is imported as a module.
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from model_utils import select_device  # noqa: E402  (after sys.path tweak)
+
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
-
-
-def select_device() -> torch.device:
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        return torch.device("mps")
-    return torch.device("cpu")
 
 
 def build_model(num_classes: int = 10) -> nn.Module:

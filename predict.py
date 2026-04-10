@@ -35,6 +35,10 @@ import torchvision.transforms as transforms
 from PIL import Image
 import matplotlib.pyplot as plt
 
+# Device selection is centralised in model_utils so every surface
+# (CLI, Streamlit app, Grad-CAM, retrain script) uses identical logic.
+from model_utils import pretty_model_name, select_device  # noqa: E402  (import after std-lib imports)
+
 
 # ============================================================================
 #  Constants — Dataset Statistics & Class Labels
@@ -179,23 +183,11 @@ def build_mobilenetv2(num_classes: int = 10) -> nn.Module:
 
 
 # ============================================================================
-#  Device Selection
+#  Device Selection — imported from model_utils (single source of truth)
 # ============================================================================
-
-def select_device():
-    """
-    Auto-detect the best available compute device.
-
-    Priority order:
-        1. CUDA  — NVIDIA GPU (fastest for batch inference)
-        2. MPS   — Apple Silicon GPU (Metal Performance Shaders)
-        3. CPU   — Fallback (always available)
-    """
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        return torch.device("mps")
-    return torch.device("cpu")
+# The auto-detect logic (CUDA > MPS > CPU) and the one-time device log line
+# live in model_utils.select_device(). We simply re-export it here so existing
+# call sites like `device = select_device()` keep working.
 
 
 # ============================================================================
@@ -501,8 +493,9 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
+    # select_device() prints the device line exactly once per process, so
+    # we don't add our own print to avoid duplicate log lines.
     device = select_device()
-    print(f"Device: {device}\n")
 
     models_to_use = ["custom_cnn", "mobilenet"] if args.model == "both" else [args.model]
 
@@ -555,7 +548,7 @@ def main():
         for img in images:
             preds = predict_single(model, img, transform, device, top_k=args.top_k)
             preds_list.append(preds)
-        all_results[model_name.replace("_", " ").title()] = preds_list
+        all_results[pretty_model_name(model_name)] = preds_list
 
     # ── Print results to terminal ────────────────────────────────
     for i, img in enumerate(images):
