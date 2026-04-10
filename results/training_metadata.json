@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-06T15:17:45",
+  "timestamp": "2026-04-10T17:38:00",
   "seed": 42,
   "epochs": 15,
   "batch_size": 128,
@@ -7,14 +7,57 @@
   "weight_decay": 0.0001,
   "optimizer": "Adam",
   "loss_function": "CrossEntropyLoss",
+  "scheduler": "CosineAnnealingLR",
   "device": "mps",
   "dataset_mode": "full",
-  "subset_per_class": 1000,
   "num_classes": 10,
   "dataset": "CIFAR-10",
+  "train_size": 50000,
+  "test_size": 10000,
+  "note": "Canonical metrics live in benchmark_data.py (single source of truth). Custom CNN and MobileNetV2 numbers are verified empirically from the committed checkpoints on 2026-04-10; the other three architectures are reported from the original notebook study.",
   "results": {
     "Custom CNN": {
-      "test_accuracy": 48.4
+      "strategy": "Trained from scratch",
+      "test_accuracy": 48.40,
+      "trainable_params": 2462282,
+      "checkpoint": "checkpoints/custom_cnn_best.pth",
+      "verified": true
+    },
+    "MobileNetV2": {
+      "strategy": "Transfer learning (frozen ImageNet backbone)",
+      "test_accuracy": 86.91,
+      "trainable_params": 12810,
+      "checkpoint": "checkpoints/mobilenetv2_best.pth",
+      "verified": true,
+      "retrain_history": [
+        {"epoch": 1, "train_loss": 0.5720, "train_acc": 81.94, "val_acc": 85.88, "seconds": 146},
+        {"epoch": 2, "train_loss": 0.3987, "train_acc": 86.07, "val_acc": 86.80, "seconds": 149},
+        {"epoch": 3, "train_loss": 0.3776, "train_acc": 86.88, "val_acc": 86.91, "seconds": 192}
+      ]
+    },
+    "ResNet-18": {
+      "strategy": "Transfer learning (frozen backbone)",
+      "test_accuracy": 82.10,
+      "trainable_params": 5130,
+      "checkpoint": "checkpoints/resnet-18_best.pth",
+      "verified": false,
+      "note": "Reported from the original notebook study; checkpoint not committed due to size."
+    },
+    "EfficientNet-B0": {
+      "strategy": "Transfer learning (frozen backbone)",
+      "test_accuracy": 83.75,
+      "trainable_params": 12810,
+      "checkpoint": "checkpoints/efficientnet-b0_best.pth",
+      "verified": false,
+      "note": "Reported from the original notebook study; checkpoint not committed due to size."
+    },
+    "ViT-Small": {
+      "strategy": "Minimal ViT trained from scratch",
+      "test_accuracy": 62.30,
+      "trainable_params": 4756746,
+      "checkpoint": "checkpoints/vit_small_best.pth",
+      "verified": false,
+      "note": "Reported from the original notebook study; checkpoint not committed due to size."
     }
   }
 }

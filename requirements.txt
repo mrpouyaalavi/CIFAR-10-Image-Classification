@@ -1,9 +1,12 @@
-torch>=2.0.0
-torchvision>=0.15.0
+# ── Runtime dependencies for the Streamlit portfolio app ───────────────────
+# Kept minimal to fit comfortably under Streamlit Community Cloud's
+# cold-start budget. Scientific libraries use the CPU-only PyTorch wheel
+# (torch+cpu is selected automatically on Linux when CUDA isn't available).
+
+streamlit>=1.32.0
+torch>=2.1.0
+torchvision>=0.16.0
 numpy>=1.24.0
-scikit-learn>=1.3.0
-matplotlib>=3.7.0
-seaborn>=0.12.0
+pandas>=2.0.0
 Pillow>=10.0.0
-jupyter>=1.0.0
-streamlit>=1.28.0
+matplotlib>=3.7.0
