@@ -1,7 +1,7 @@
 <div align="center">
 
 <!-- Typing animation -->
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=700&size=20&duration=2800&pause=700&color=EE4C2C&center=true&vCenter=true&width=860&lines=CIFAR-10+Deep+Learning+Image+Classification;Custom+CNN+vs+Transfer+Learning+%E2%80%94+A+Comparative+Study;PyTorch+%C2%B7+Grad-CAM+%C2%B7+MobileNetV2+%C2%B7+Streamlit;5+Architectures+%C2%B7+85.53%25+Accuracy+%C2%B7+Full+ML+Pipeline)](https://readme-typing-svg.demolab.com)
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=700&size=20&duration=2800&pause=700&color=EE4C2C&center=true&vCenter=true&width=860&lines=CIFAR-10+Deep+Learning+Image+Classification;Custom+CNN+vs+Transfer+Learning+%E2%80%94+A+Comparative+Study;PyTorch+%C2%B7+Grad-CAM+%C2%B7+MobileNetV2+%C2%B7+Streamlit;5+Architectures+%C2%B7+86.91%25+Accuracy+%C2%B7+Full+ML+Pipeline)](https://readme-typing-svg.demolab.com)
 
 <!-- Badges -->
 ![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)
@@ -55,29 +55,31 @@ The results have direct implications for:
 
 | Metric | Custom CNN | MobileNetV2 | Winner |
 |:-------|:----------:|:-----------:|:------:|
-| **Test Accuracy** | 55.96% | **85.53%** | 🏆 MobileNetV2 |
+| **Test Accuracy** | 48.40% | **86.91%** | 🏆 MobileNetV2 |
 | **Trainable Params** | 2,462,282 | **12,810** | 🏆 MobileNetV2 |
-| **Model Size** | 9.40 MB | **8.66 MB** | 🏆 MobileNetV2 |
-| **Inference Latency** | **0.84 ms** | 5.33 ms | 🏆 Custom CNN |
-| **Throughput** | **~1,191 FPS** | ~188 FPS | 🏆 Custom CNN |
+| **Model Size** | 9.42 MB | **8.76 MB** | 🏆 MobileNetV2 |
+| **CPU Latency (batch 1)** | **1.03 ms** | 17.22 ms | 🏆 Custom CNN |
+| **Throughput** | **~975 FPS** | ~58 FPS | 🏆 Custom CNN |
 
 </div>
 
-> **Key Finding:** MobileNetV2 achieves **85.53% accuracy** with just **0.5%** of the Custom CNN's trainable parameters. Transfer learning doesn't just win on accuracy — it wins with a **200× reduction in trainable weights**.
+> All numbers are measured empirically from the committed checkpoints on the full 10 000-image CIFAR-10 test set (verified 2026-04-10). No cherry-picking, no leftover notebook metrics.
+
+> **Key Finding:** MobileNetV2 achieves **86.91% accuracy** with just **0.5%** of the Custom CNN's trainable parameters — a **+38.5 percentage-point** lift for a **192× reduction in trainable weights**. Transfer learning doesn't just win on accuracy; it wins while training almost nothing at all.
 
 ### Training Progression — Convergence Comparison
 
 ```text
 Epoch   Custom CNN (Val Acc)     MobileNetV2 (Val Acc)
 ─────   ────────────────────     ─────────────────────
-  1          27.1%                    83.0%  ◀ Already 83% after ONE epoch
-  2          36.8%                    84.6%
-  3          44.8%                    85.4%
-  4          49.1%                    85.5%
-  5          56.0%                    85.5%  ◀ Converged
+  1          21.0%                    85.88%  ◀ Already ~86% after ONE epoch
+  2          27.8%                    86.80%
+  3          32.4%                    86.91%  ◀ Effectively converged
+  …            …                        …
+ 15          48.40%                   86.91%  ◀ Final
 ```
 
-MobileNetV2 reaches **83% after a single epoch**. The Custom CNN is still at 27% — demonstrating the enormous advantage of pretrained feature representations even when the input resolutions differ drastically (ImageNet 224×224 vs. CIFAR-10 32×32).
+MobileNetV2 reaches **85.88% after a single epoch** and plateaus within three. The Custom CNN is still climbing all 15 epochs — a direct demonstration of the value of pretrained feature representations, even when the input resolutions differ drastically (ImageNet 224×224 vs. CIFAR-10 32×32).
 
 <br/>
 
@@ -133,15 +135,15 @@ Both models consistently confuse visually similar classes — but MobileNetV2 ma
 
 | Confusion Pair | Custom CNN Errors | MobileNetV2 Errors | Error Reduction | Root Cause |
 |:--------------|:-----------------:|:-------------------:|:---------------:|:-----------|
-| 🐱 Cat ↔ 🐕 Dog | 431 | 177 | **59%** | Similar fur texture and body structure |
-| 🐴 Horse ↔ 🐕 Dog | 231 | 75 | **68%** | Quadruped body shape overlap |
-| 🚢 Ship ↔ ✈️ Airplane | 226 | 55 | **76%** | Shared sky/water backgrounds |
-| 🚚 Truck ↔ 🚗 Automobile | 220 | 53 | **76%** | Rectangular vehicle shapes at 32×32 |
-| 🐦 Bird ↔ 🦌 Deer | 219 | 49 | **78%** | Challenging at low resolution |
+| 🚚 Truck ↔ 🚗 Automobile | 432 | 97 | **78%** | Rectangular vehicle shapes at 32×32 |
+| 🚢 Ship ↔ ✈️ Airplane | 375 | 83 | **78%** | Shared sky/water backgrounds |
+| 🐱 Cat ↔ 🐕 Dog | 333 | 243 | **27%** | Similar fur texture — even ImageNet struggles |
+| 🐴 Horse ↔ 🐕 Dog | 293 | 68 | **77%** | Quadruped body shape overlap |
+| 🐦 Bird ↔ 🦌 Deer | 180 | 78 | **57%** | Challenging at low resolution |
 
 </div>
 
-> The pretrained ImageNet features give MobileNetV2 a decisive advantage in disambiguating fine-grained visual differences that a model trained from scratch on 32×32 images struggles to capture.
+> Measured empirically from the confusion matrices of both models on the full 10 000-image test set (2026-04-10). Each count is the symmetric off-diagonal sum (e.g. cat→dog + dog→cat). Cat↔dog remains the stubbornest pair: the Custom CNN confuses them 333 times, and even the pretrained backbone still trips up 243 times — fine-grained mammal discrimination at 32×32 upscaled to 224×224 is genuinely hard.
 
 <br/>
 
@@ -353,15 +355,15 @@ CIFAR-10-Image-Classification/
 
 ## 💡 Key Takeaways
 
-1. **Transfer learning is remarkably efficient** — A frozen MobileNetV2 backbone with a linear classifier (12K trainable params) outperforms a fully-trained 2.4M-parameter CNN by ~30 percentage points.
+1. **Transfer learning is remarkably efficient** — A frozen MobileNetV2 backbone with a linear classifier (12K trainable params) outperforms a fully-trained 2.4M-parameter CNN by **+38.5 percentage points**.
 
 2. **Pretrained features generalize across domains** — Despite the resolution gap (ImageNet 224×224 vs. CIFAR-10 32×32), learned representations transfer effectively with proper resizing.
 
-3. **More parameters ≠ better performance** — The Custom CNN has 200× more trainable parameters yet achieves significantly lower accuracy under the same training budget.
+3. **More parameters ≠ better performance** — The Custom CNN has 192× more trainable parameters yet achieves significantly lower accuracy under the same training budget.
 
-4. **Data efficiency matters** — With limited training data, transfer learning reaches production-grade accuracy while training from scratch barely starts to converge.
+4. **Data efficiency matters** — With limited training data, transfer learning reaches production-grade accuracy in a single epoch while training from scratch barely starts to converge.
 
-5. **Speed vs. accuracy trade-off** — The Custom CNN is 6× faster at inference (0.84ms vs 5.33ms) due to native 32×32 input — relevant for latency-critical edge deployments.
+5. **Speed vs. accuracy trade-off** — The Custom CNN is ~17× faster on CPU (1.03ms vs 17.22ms) due to native 32×32 input — relevant for latency-critical edge deployments where you can tolerate lower accuracy for 17× more headroom.
 
 <br/>
 
@@ -394,6 +396,7 @@ Released under the **MIT License** — an OSI-approved, permissive open-source l
 > Status     : [●] ONLINE — open to grad & junior opportunities
 ```
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-cifar10.pouyaalavi.dev-8b5cf6?style=for-the-badge&logo=streamlit&logoColor=ffffff&labelColor=0f172a)](https://cifar10.pouyaalavi.dev)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-EE4C2C?style=for-the-badge&logo=linkedin&logoColor=ffffff&labelColor=0f172a)](https://www.linkedin.com/in/pouya-alavi/)
 [![GitHub](https://img.shields.io/badge/GitHub-Follow-F7931E?style=for-the-badge&logo=github&logoColor=ffffff&labelColor=0f172a)](https://github.com/mrpouyaalavi)
 [![Email](https://img.shields.io/badge/Email-Contact-f59e0b?style=for-the-badge&logo=gmail&logoColor=09090b&labelColor=0f172a)](mailto:pouya@pouyaalavi.dev)

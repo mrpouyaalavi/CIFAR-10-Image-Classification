@@ -246,9 +246,15 @@ class GradCAM:
         self,
         input_tensor: torch.Tensor,
         target_class: int | None = None,
-    ) -> tuple[np.ndarray, int]:
-        """Return (heatmap_0_to_1, predicted_or_target_class)."""
-        self.model.eval()
+    ) -> tuple[np.ndarray, int, torch.Tensor]:
+        """
+        Return (heatmap_0_to_1, predicted_or_target_class, logits).
+
+        The logits are returned detached so callers can compute confidence
+        scores without re-running the forward pass. This avoids the common
+        mistake of calling the model twice for Grad-CAM + confidence.
+        """
+        self.model.train(False)
         self.model.zero_grad()
 
         output = self.model(input_tensor)
@@ -267,7 +273,7 @@ class GradCAM:
         else:
             cam = np.zeros_like(cam)
 
-        return cam, target_class
+        return cam, target_class, output.detach()
 
     def remove_hooks(self):
         self._fwd_hook.remove()
@@ -275,11 +281,34 @@ class GradCAM:
 
 
 def get_gradcam_target_layer(model: nn.Module, model_name: str) -> nn.Module:
-    """Return the best convolutional layer for Grad-CAM heatmaps."""
+    """
+    Return the best convolutional-feature layer for Grad-CAM heatmaps.
+
+    We target the *last* high-resolution conv feature map (just before global
+    pooling) because that's where the network has its richest spatial +
+    semantic representation — early layers see edges, late layers see objects.
+
+    Important: we must NOT hook a layer whose output is subsequently modified
+    by an in-place op (e.g. ReLU(inplace=True)), because the backward hook
+    triggers an autograd error when it sees the in-place modification. For
+    the Custom CNN the last Conv2d at features[24] is the safest choice.
+    """
     if model_name == "Custom CNN":
-        return model.features[19]
-    else:
-        return model.features[-1]
+        # features[24] = last Conv2d(256→512). Its output is read (not modified)
+        # by the subsequent BatchNorm, so the backward hook stays consistent.
+        return model.features[24]
+
+    # MobileNetV2: features[-1] is a Conv2dNormActivation container
+    # (Conv + BN + ReLU6-inplace). Hooking the container triggers the
+    # "NoneType gradients" bug because backward hooks on containers don't
+    # always fire; hook the inner Conv2d directly for reliable activations.
+    if model_name == "MobileNetV2":
+        last_block = model.features[-1]
+        # Conv2dNormActivation exposes the conv as [0]
+        return last_block[0] if hasattr(last_block, "__getitem__") else last_block
+
+    # Fallback for any other architecture
+    return model.features[-1]
 
 
 def compute_gradcam_overlay(
@@ -303,17 +332,21 @@ def compute_gradcam_overlay(
     target_layer = get_gradcam_target_layer(model, model_name)
     gradcam = GradCAM(model, target_layer)
 
+    # Preprocess exactly once. We set requires_grad=True on the *input tensor*
+    # so that autograd builds a full backward graph through every intermediate
+    # layer even when the model's parameters are frozen (e.g. MobileNetV2's
+    # transfer-learning backbone). Without this, backward hooks on frozen
+    # layers never fire and self._gradients stays None.
     transform = get_transform(model_name)
     tensor = transform(image).unsqueeze(0).to(device)
     tensor.requires_grad_(True)
 
-    heatmap, pred_class = gradcam.generate(tensor, target_class=None)
-    gradcam.remove_hooks()
+    try:
+        heatmap, pred_class, logits = gradcam.generate(tensor, target_class=None)
+    finally:
+        gradcam.remove_hooks()
 
-    # Get confidence
-    model.eval()
     with torch.no_grad():
-        logits = model(transform(image).unsqueeze(0).to(device))
         probs = F.softmax(logits, dim=1)[0]
         confidence = probs[pred_class].item() * 100
 
