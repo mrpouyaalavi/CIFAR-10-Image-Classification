@@ -35,7 +35,7 @@ This project is a comprehensive, portfolio-grade machine learning study that goe
 
 > _How much does a pretrained backbone actually help compared to training from scratch — when both models share the same training budget?_
 
-Deep learning practitioners often default to transfer learning without quantifying its advantage under controlled conditions. This project answers that question through a **rigorous, controlled experiment**: identical dataset, optimizer, learning rate, epoch count, and augmentation strategy — the only variable is the architecture and whether the weights are pretrained.
+Deep learning practitioners often default to transfer learning without quantifying its advantage under controlled conditions. This project answers that question through a **rigorous, controlled experiment**: identical dataset, optimiser, learning rate, epoch count, and augmentation strategy — the only variable is the architecture and whether the weights are pretrained.
 
 The results have direct implications for:
 
@@ -63,7 +63,7 @@ The results have direct implications for:
 
 </div>
 
-> **Key Finding:** MobileNetV2 achieves **85.53% accuracy** with just **0.5%** of the Custom CNN's trainable parameters. Transfer learning doesn't just win on accuracy — it wins with **200× fewer trainable weights**.
+> **Key Finding:** MobileNetV2 achieves **85.53% accuracy** with just **0.5%** of the Custom CNN's trainable parameters. Transfer learning doesn't just win on accuracy — it wins with a **200× reduction in trainable weights**.
 
 ### Training Progression — Convergence Comparison
 
@@ -77,7 +77,7 @@ Epoch   Custom CNN (Val Acc)     MobileNetV2 (Val Acc)
   5          56.0%                    85.5%  ◀ Converged
 ```
 
-MobileNetV2 reaches **83% after a single epoch**. The Custom CNN is still at 27% — demonstrating the enormous advantage of pretrained feature representations even when input resolution is drastically different (ImageNet 224×224 vs CIFAR-10 32×32).
+MobileNetV2 reaches **83% after a single epoch**. The Custom CNN is still at 27% — demonstrating the enormous advantage of pretrained feature representations even when the input resolutions differ drastically (ImageNet 224×224 vs. CIFAR-10 32×32).
 
 <br/>
 
@@ -89,7 +89,7 @@ MobileNetV2 reaches **83% after a single epoch**. The Custom CNN is still at 27%
 
 ### Custom CNN — 4-Block Design (Trained From Scratch)
 
-A purpose-built convolutional network with progressive channel expansion, dual convolutions per block, and aggressive regularization:
+A purpose-built convolutional network with progressive channel expansion, dual convolutions per block, and aggressive regularisation:
 
 ```text
 Input (3 × 32 × 32)
@@ -104,10 +104,10 @@ Input (3 × 32 × 32)
 ```
 
 **Design Decisions:**
-- **Kaiming He initialization** for stable gradient flow through deep ReLU networks
+- **Kaiming He initialisation** for stable gradient flow through deep ReLU networks
 - **Dual convolutions per block** to increase receptive field before downsampling
 - **Global Average Pooling** (Block 4) eliminates large FC layers, reducing overfitting
-- **Aggressive dropout** (0.25 in conv blocks, 0.5 in classifier) for regularization
+- **Aggressive dropout** (0.25 in conv blocks, 0.5 in classifier) for regularisation
 
 ### MobileNetV2 — Transfer Learning (Frozen ImageNet Backbone)
 
@@ -117,7 +117,7 @@ Pretrained MobileNetV2 (ImageNet — 1.2M images, 1000 classes — FROZEN)
   └── Classifier Head: Dropout(0.2) → Linear(1280 → 10)   ◀ Only trainable layer
 ```
 
-**Strategy:** Freeze the entire feature extraction backbone (2.2M params) and train only a lightweight classifier head (12,810 params). Depthwise separable convolutions reduce computation ~8–9× compared to standard convolutions, making it practical for edge deployment.
+**Strategy:** Freeze the entire feature extraction backbone (2.2M params) and train only a lightweight classifier head (12,810 params). Depthwise separable convolutions reduce computational cost by ~8–9× compared to standard convolutions, making them practical for edge deployment.
 
 <br/>
 
@@ -153,11 +153,11 @@ Both models consistently confuse visually similar classes — but MobileNetV2 ma
 
 ```text
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  🧠  5 architectures benchmarked in notebook (CLI tools: CNN & MobileNetV2) ║
+║  🧠  5 architectures benchmarked in notebook (CLI tools: CNN & MobileNetV2)  ║
 ║  📈  Full training pipeline with cosine annealing LR & progressive unfreezing║
-║  🎲  Advanced augmentation: RandomCrop, CutOut, MixUp, CutMix               ║
+║  🎲  Advanced augmentation: RandomCrop, CutOut, MixUp, CutMix                ║
 ║  🔬  Grad-CAM interpretability — see what the model actually looks at        ║
-║  ⚡  INT8 dynamic quantization for deployment-ready performance              ║
+║  ⚡  INT8 dynamic quantisation for deployment-ready performance               ║
 ║  📊  Confusion matrices, training curves, and efficiency benchmarks          ║
 ║  🖥️  Streamlit demo app — interactive side-by-side model comparison          ║
 ║  🛠️  CLI inference tools — single image, batch, or CIFAR-10 test samples     ║
@@ -191,7 +191,7 @@ Both models consistently confuse visually similar classes — but MobileNetV2 ma
 Both models were trained with **identical hyperparameters** — the only variable is the architecture:
 
 ```yaml
-Optimizer       : Adam
+Optimiser      : Adam
 Learning Rate   : 0.001 (with Cosine Annealing decay)
 Weight Decay    : 1e-4
 Batch Size      : 128
@@ -266,7 +266,7 @@ pip install -r requirements.txt
 jupyter notebook "cifar10 image classification.ipynb"
 ```
 
-> The CIFAR-10 dataset is downloaded automatically on first run via `torchvision.datasets`. GPU (CUDA) and Apple Silicon (MPS) acceleration are auto-detected.
+> The CIFAR-10 dataset is downloaded automatically on the first run via `torchvision.datasets`. GPU (CUDA) and Apple Silicon (MPS) acceleration are auto-detected.
 
 <br/>
 
@@ -289,13 +289,13 @@ python predict.py --image path/to/image.png --model mobilenet
 python predict.py --image-dir path/to/images/ --model both --save results/predictions.png
 ```
 
-### Grad-CAM Visualizations (CLI)
+### Grad-CAM Visualisations (CLI)
 
 ```bash
 # Generate Grad-CAM heatmaps for both models
 python gradcam.py --model both --num-images 6
 
-# Visualize specific test images and save output
+# Visualise specific test images and save output
 python gradcam.py --model both --image-index 0 42 100 --save results/gradcam/
 ```
 
@@ -320,7 +320,7 @@ CIFAR-10-Image-Classification/
 │
 ├── cifar10 image classification.ipynb   # Main notebook — full 14-section ML pipeline
 ├── predict.py                            # CLI inference — single / batch / directory
-├── gradcam.py                            # Grad-CAM interpretability visualizations
+├── gradcam.py                            # Grad-CAM interpretability visualisations
 ├── app.py                                # Streamlit demo — interactive classification
 │
 ├── artifacts/
@@ -369,19 +369,6 @@ CIFAR-10-Image-Classification/
 
 <br/>
 
-## ✅ Roadmap
-
-- [x] Train with the **full CIFAR-10 dataset** (50K images) with cosine annealing LR
-- [x] Implement **advanced data augmentation** (RandomCrop, CutOut, MixUp, CutMix)
-- [x] Benchmark **5 architectures** (Custom CNN, MobileNetV2, ResNet-18, EfficientNet-B0, ViT)
-- [x] **Progressive unfreezing** — 3-phase MobileNetV2 fine-tuning strategy
-- [x] **INT8 model quantization** for deployment-ready performance
-- [x] **Grad-CAM interpretability** — visualize model attention regions
-- [x] **CLI inference tools** — single image, batch, and test-sample modes
-- [x] **Streamlit demo app** — interactive side-by-side model comparison
-
-<br/>
-
 <img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
 
 <br/>
@@ -409,7 +396,7 @@ Released under the **MIT License** — an OSI-approved, permissive open-source l
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-EE4C2C?style=for-the-badge&logo=linkedin&logoColor=ffffff&labelColor=0f172a)](https://www.linkedin.com/in/pouya-alavi/)
 [![GitHub](https://img.shields.io/badge/GitHub-Follow-F7931E?style=for-the-badge&logo=github&logoColor=ffffff&labelColor=0f172a)](https://github.com/mrpouyaalavi)
-[![Email](https://img.shields.io/badge/Email-Contact-f59e0b?style=for-the-badge&logo=gmail&logoColor=09090b&labelColor=0f172a)](mailto:pouyaalavi1378@gmail.com)
+[![Email](https://img.shields.io/badge/Email-Contact-f59e0b?style=for-the-badge&logo=gmail&logoColor=09090b&labelColor=0f172a)](mailto:pouya@pouyaalavi.dev)
 
 <br/>
 
