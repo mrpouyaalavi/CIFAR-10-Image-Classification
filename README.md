@@ -67,7 +67,7 @@ The results have direct implications for:
 
 ### Training Progression — Convergence Comparison
 
-```
+```text
 Epoch   Custom CNN (Val Acc)     MobileNetV2 (Val Acc)
 ─────   ────────────────────     ─────────────────────
   1          27.1%                    83.0%  ◀ Already 83% after ONE epoch
@@ -91,7 +91,7 @@ MobileNetV2 reaches **83% after a single epoch**. The Custom CNN is still at 27%
 
 A purpose-built convolutional network with progressive channel expansion, dual convolutions per block, and aggressive regularization:
 
-```
+```text
 Input (3 × 32 × 32)
   │
   ├── Block 1: Conv(3→64) ×2 → BatchNorm → ReLU → MaxPool → Dropout(0.25)     [32→16]
@@ -111,7 +111,7 @@ Input (3 × 32 × 32)
 
 ### MobileNetV2 — Transfer Learning (Frozen ImageNet Backbone)
 
-```
+```text
 Pretrained MobileNetV2 (ImageNet — 1.2M images, 1000 classes — FROZEN)
   │
   └── Classifier Head: Dropout(0.2) → Linear(1280 → 10)   ◀ Only trainable layer
@@ -151,7 +151,7 @@ Both models consistently confuse visually similar classes — but MobileNetV2 ma
 
 ## Key Features
 
-```
+```text
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  🧠  5 architectures benchmarked in notebook (CLI tools: CNN & MobileNetV2) ║
 ║  📈  Full training pipeline with cosine annealing LR & progressive unfreezing║
@@ -400,7 +400,7 @@ Released under the **MIT License** — an OSI-approved, permissive open-source l
 
 ### `> ping --author`
 
-```
+```text
 > Target     : Pouya Alavi Naeini — AI & Full-Stack Developer
 > University : Macquarie University, Sydney, NSW
 > Major      : B.IT — Artificial Intelligence & Web/App Development
