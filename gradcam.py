@@ -51,6 +51,13 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
+# Device selection is centralised in model_utils so every surface
+# (CLI, Streamlit app, Grad-CAM, retrain script) uses identical logic.
+from model_utils import (  # noqa: E402
+    pretty_model_name,
+    select_device as _select_device,
+)
+
 
 # ============================================================================
 #  Constants — Dataset Statistics & Class Labels
@@ -371,7 +378,14 @@ def visualize_gradcam_grid(
 
     for row, idx in enumerate(indices):
         img_tensor, true_label = dataset[idx]
-        input_tensor = img_tensor.unsqueeze(0).to(device)
+        # NOTE: requires_grad_(True) on the INPUT is essential for
+        # frozen-backbone models (MobileNetV2 transfer learning). Because every
+        # backbone parameter has requires_grad=False, autograd will not build
+        # a backward graph through them unless *some* leaf in the graph asks
+        # for gradients. Marking the input tensor as a grad-requiring leaf
+        # makes backward hooks on the target conv fire correctly. Without
+        # this, gradcam._gradients stays None and .mean() raises AttributeError.
+        input_tensor = img_tensor.unsqueeze(0).to(device).requires_grad_(True)
 
         # Generate the Grad-CAM heatmap
         heatmap, pred_class, logits = gradcam(input_tensor)
@@ -414,16 +428,9 @@ def visualize_gradcam_grid(
 
 
 # ============================================================================
-#  Utilities — Device Selection & Model Loading
+#  Utilities — Model Loading
 # ============================================================================
-
-def _select_device():
-    """Auto-detect the best available compute device (CUDA > MPS > CPU)."""
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        return torch.device("mps")
-    return torch.device("cpu")
+# Device selection is re-exported from model_utils at the top of this file.
 
 
 def _remap_legacy_keys(state_dict: dict) -> dict:
@@ -534,8 +541,9 @@ def main():
     parser.add_argument("--seed", type=int, default=42, help="Random seed for image selection")
     args = parser.parse_args()
 
+    # _select_device() (imported from model_utils) prints the device line
+    # exactly once per process, so we don't add our own to avoid duplicates.
     device = _select_device()
-    print(f"Device: {device}")
 
     # ── Prepare CIFAR-10 test sets with model-specific transforms ──
     # Each model needs its own dataset instance because preprocessing
@@ -596,7 +604,7 @@ def main():
             indices=indices,
             mean=mean,
             std=std,
-            model_name=model_name.replace("_", " ").title(),
+            model_name=pretty_model_name(model_name),
             save_path=save_path,
         )
 

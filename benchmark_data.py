@@ -59,19 +59,24 @@ class ModelMetrics(TypedDict):
 # context; their metrics come from the original notebook study and their
 # checkpoints are not committed to git (file-size constraints).
 #
-# Last verification: 2026-04-10
+# Last verification: 2026-04-11
 #   Custom CNN    → 48.40% (verified on full 10k test set)
+#                   Confidence calibration: 50.18% when correct, 34.88% when wrong
+#                   (15.3-pt gap) — a textbook under-trained signature, which is
+#                   *exactly* the point of the comparison: it makes the
+#                   MobileNetV2 transfer-learning story obvious. Per-class
+#                   accuracy ranges 8.2% (bird) to 84.1% (automobile).
 #   MobileNetV2   → 86.91% (verified; retrained on 2026-04-10)
 
 BENCHMARK_METRICS: dict[str, ModelMetrics] = {
     "Custom CNN": {
         "display_name": "Custom CNN",
-        "test_accuracy": 48.40,        # verified 2026-04-10 on full 10 000-image test set
+        "test_accuracy": 48.40,        # verified 2026-04-11 on full 10 000-image test set
         "trainable_params": 2_462_282,
         "total_params": 2_462_282,
         "size_mb": 9.42,               # actual on-disk float32 state-dict size
-        "latency_ms": 1.03,            # CPU median (50 runs, M-series, batch=1)
-        "fps": 975,                    # 1000 / latency_ms
+        "latency_ms": 1.38,            # CPU median (100 runs, M-series, batch=1, 2026-04-11)
+        "fps": 724,                    # 1000 / latency_ms
         "input_size": 32,
         "normalization": "cifar",
         "strategy": "Trained from scratch",

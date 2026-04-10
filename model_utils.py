@@ -23,6 +23,32 @@ CLASS_NAMES = (
     "dog", "frog", "horse", "ship", "truck",
 )
 
+# Map internal CLI model keys → pretty display names used in every figure
+# title, log line, and chart heading. This exists because a naive
+# `.replace("_"," ").title()` mangles proper nouns:
+#     "custom_cnn"  →  "Custom Cnn"      (should be "Custom CNN")
+#     "mobilenet"   →  "Mobilenet"       (should be "MobileNetV2")
+# Consolidating here prevents the display-name drift we caught in the
+# CLI smoke-test screenshots.
+PRETTY_NAMES: dict[str, str] = {
+    "custom_cnn": "Custom CNN",
+    "mobilenet":  "MobileNetV2",
+    # Already-pretty keys map to themselves so callers can safely pass either
+    "Custom CNN":  "Custom CNN",
+    "MobileNetV2": "MobileNetV2",
+}
+
+
+def pretty_model_name(name: str) -> str:
+    """Return the canonical display name for a model key.
+
+    Accepts either the CLI snake-case key ("custom_cnn") or the already-pretty
+    name ("Custom CNN"). Unknown names fall back to the input unchanged so new
+    architectures don't silently crash the CLI.
+    """
+    return PRETTY_NAMES.get(name, name)
+
+
 CIFAR_MEAN = (0.4914, 0.4822, 0.4465)
 CIFAR_STD = (0.2023, 0.1994, 0.2010)
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
@@ -84,13 +110,75 @@ def build_mobilenetv2(num_classes: int = 10) -> nn.Module:
 # ============================================================================
 #  Device Selection
 # ============================================================================
+#
+# Single source of truth for device auto-detection across every surface in
+# this repo (training, evaluation, CLI inference, Grad-CAM, Streamlit app).
+# The goal: pick the best accelerator available, and print it exactly once
+# per process so there's always a clear record in the logs.
+#
+# Priority order:
+#   1. CUDA   — NVIDIA GPU (servers, Colab, Kaggle, most cloud instances)
+#   2. MPS    — Apple Silicon GPU (M1/M2/M3/M4 Macs)
+#   3. CPU    — universal fallback
+#
+# The `_device_logged` module-level flag ensures we only print once even
+# when multiple callers (Streamlit rerun loops, test suites, notebooks)
+# hit select_device() repeatedly.
 
-def select_device() -> torch.device:
+_device_logged: bool = False
+
+
+def describe_device(device: torch.device) -> str:
+    """Return a human-readable description of the selected device + hardware."""
+    if device.type == "cuda":
+        idx = device.index or 0
+        name = torch.cuda.get_device_name(idx)
+        mem_gb = torch.cuda.get_device_properties(idx).total_memory / (1024 ** 3)
+        return f"CUDA — {name} ({mem_gb:.1f} GB)"
+    if device.type == "mps":
+        import platform
+        # There's no public torch API for MPS device name; use the OS machine
+        # identifier as a proxy (e.g. "arm64" on Apple Silicon).
+        return f"MPS — Apple Silicon ({platform.machine()})"
+    # CPU — try to surface brand string when possible
+    import platform
+    proc = platform.processor() or platform.machine() or "unknown"
+    return f"CPU — {proc}"
+
+
+def select_device(verbose: bool = True) -> torch.device:
+    """
+    Auto-select the best available PyTorch device (CUDA > MPS > CPU).
+
+    Parameters
+    ----------
+    verbose : bool, default True
+        If True *and* this is the first call in the current process, print a
+        one-line summary of the selected device to stdout. Subsequent calls
+        stay silent regardless of `verbose` so we don't spam the console on
+        every Streamlit rerun. Pass `verbose=False` to silence the first call
+        too (useful for tests).
+
+    Returns
+    -------
+    torch.device
+        Ready-to-use device handle. Pass it to `.to(device)` or
+        `torch.load(..., map_location=device)`.
+    """
+    global _device_logged
+
     if torch.cuda.is_available():
-        return torch.device("cuda")
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        return torch.device("mps")
-    return torch.device("cpu")
+        device = torch.device("cuda")
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+
+    if verbose and not _device_logged:
+        print(f"[cifar10] Device: {describe_device(device)}", flush=True)
+        _device_logged = True
+
+    return device
 
 
 # ============================================================================

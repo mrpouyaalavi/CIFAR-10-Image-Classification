@@ -36,10 +36,28 @@ from benchmark_data import (
 from model_utils import (
     CLASS_NAMES,
     compute_gradcam_overlay,
+    describe_device,
     load_models,
     predict,
     select_device,
 )
+
+# ============================================================================
+#  Top-level navigation constants
+# ============================================================================
+#
+# We use named constants (instead of bare strings) for the segmented-control
+# options because the hero CTA callback (`_go_to_demo`) writes to
+# st.session_state["nav"] using one of these values — if the label in one
+# place ever drifted from the other, the CTA would silently stop working.
+# Keeping them here, imported by both the hero button and main(), guarantees
+# they always match.
+NAV_OVERVIEW = "🏠 Overview"
+NAV_LIVE_DEMO = "🔬 Live Demo"
+NAV_MODELS = "📊 Models"
+NAV_ANALYSIS = "🔍 Analysis"
+NAV_ABOUT = "👤 About"
+NAV_OPTIONS = [NAV_OVERVIEW, NAV_LIVE_DEMO, NAV_MODELS, NAV_ANALYSIS, NAV_ABOUT]
 
 # ============================================================================
 #  Page Config
@@ -308,6 +326,77 @@ CSS = """
     .stTabs [data-baseweb="tab-highlight"] { background-color: transparent !important; }
     .stTabs [data-baseweb="tab-border"] { display: none; }
 
+    /* ── Top-level navigation (st.segmented_control) ──
+       We use segmented_control instead of st.tabs so the hero CTA button can
+       programmatically switch "tabs" via st.session_state. We re-skin it here
+       so it looks identical to the previous tab bar. */
+    div[data-testid="stSegmentedControl"] {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 0.4rem;
+    }
+    div[data-testid="stSegmentedControl"] > div {
+        background: rgba(255,255,255,0.03);
+        border-radius: 12px;
+        padding: 5px;
+        border: 1px solid rgba(255,255,255,0.06);
+        gap: 0;
+    }
+    div[data-testid="stSegmentedControl"] button {
+        background: transparent !important;
+        border: none !important;
+        border-radius: 9px !important;
+        color: #94a3b8 !important;
+        font-weight: 500 !important;
+        font-size: 0.88rem !important;
+        padding: 0.55rem 1.2rem !important;
+        white-space: nowrap !important;
+        transition: all 0.2s ease !important;
+    }
+    div[data-testid="stSegmentedControl"] button:hover {
+        color: #c4b5fd !important;
+        background: rgba(124, 58, 237, 0.08) !important;
+    }
+    div[data-testid="stSegmentedControl"] button[aria-pressed="true"],
+    div[data-testid="stSegmentedControl"] button[data-selected="true"] {
+        background: rgba(124, 58, 237, 0.16) !important;
+        color: #c4b5fd !important;
+    }
+
+    /* ── Hero CTA row (native st.button + st.link_button) ──
+       Previously anchor tags; now real widgets so on_click can update
+       st.session_state.nav. The .hero-cta wrapper scopes these overrides so
+       we don't affect every other button on the page. */
+    .hero-cta-row { margin: 0.2rem 0 0.5rem 0; }
+    .hero-cta-row .stButton > button,
+    .hero-cta-row .stLinkButton > a {
+        padding: 0.55rem 1.1rem !important;
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        border-radius: 10px !important;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        width: 100% !important;
+    }
+    .hero-cta-row .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #7c3aed, #a78bfa) !important;
+        color: #ffffff !important;
+        border: none !important;
+        box-shadow: 0 6px 24px rgba(124, 58, 237, 0.28) !important;
+    }
+    .hero-cta-row .stButton > button[kind="primary"]:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 32px rgba(124, 58, 237, 0.4) !important;
+    }
+    .hero-cta-row .stLinkButton > a {
+        color: #a78bfa !important;
+        background: rgba(124, 58, 237, 0.08) !important;
+        border: 1px solid rgba(124, 58, 237, 0.3) !important;
+        text-decoration: none !important;
+    }
+    .hero-cta-row .stLinkButton > a:hover {
+        background: rgba(124, 58, 237, 0.18) !important;
+    }
+
     /* ── File uploader ── */
     [data-testid="stFileUploader"] {
         border: 2px dashed rgba(124, 58, 237, 0.25) !important;
@@ -475,7 +564,16 @@ def render_sidebar(loaded_models: dict, device: torch.device) -> dict:
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("### Runtime")
-    st.sidebar.markdown(f"**Device**  `{device}`")
+    # describe_device() returns a human-readable string like
+    # "MPS — Apple Silicon (arm64)" or "CUDA — NVIDIA A100 (40.0 GB)" so the
+    # user can see at a glance which accelerator is active. Falling back to
+    # the bare device.type if describe_device raises (extremely defensive —
+    # describe_device only uses stdlib modules — but worth it for a live demo).
+    try:
+        device_label = describe_device(device)
+    except Exception:
+        device_label = str(device)
+    st.sidebar.markdown(f"**Device**  `{device_label}`")
     st.sidebar.markdown(f"**Loaded**  {len(loaded_names)} / 2 models")
     st.sidebar.markdown(f"**Best accuracy**  `{BENCHMARK_METRICS[best_model_key()]['test_accuracy']:.2f}%`")
 
@@ -499,10 +597,25 @@ def render_sidebar(loaded_models: dict, device: torch.device) -> dict:
 #  Tab 1 — Overview
 # ============================================================================
 
+def _go_to_demo() -> None:
+    """Hero CTA callback — switch the top-level navigation to the Live Demo tab.
+
+    We must mutate st.session_state here (inside the on_click callback) rather
+    than inline after rendering the button, because Streamlit forbids writing
+    to a widget's session_state key *after* the widget has been instantiated in
+    the same run. Callbacks execute on the next run BEFORE widgets, so this is
+    the supported pattern.
+    """
+    st.session_state["nav"] = NAV_LIVE_DEMO
+
+
 def render_overview_tab() -> None:
     best_key = best_model_key()
     best = BENCHMARK_METRICS[best_key]
 
+    # Hero block — part 1: tag, headline, subhead. We close the <div class="hero">
+    # wrapper at the end of part 3 so the three markdown blocks render as a
+    # single visual hero even though a native Streamlit button sits in between.
     st.markdown(
         f'''
         <div class="hero">
@@ -513,13 +626,41 @@ def render_overview_tab() -> None:
                 CIFAR-10 dataset. Built with PyTorch and Streamlit, featuring
                 <b>{best['test_accuracy']:.2f}% test accuracy</b> from
                 {best['display_name']} using transfer learning from a frozen
-                ImageNet backbone, plus Grad-CAM interpretability and CPU-friendly
-                inference.
+                ImageNet backbone, plus Grad-CAM interpretability and auto
+                CUDA / MPS / CPU inference.
             </p>
-            <div class="cta-row">
-                <a class="cta-primary" href="#live-demo">Try the live demo ↓</a>
-                <a class="cta-ghost" href="https://github.com/mrpouyaalavi/CIFAR-10-Image-Classification" target="_blank">View source on GitHub ↗</a>
-            </div>
+        </div>
+        ''',
+        unsafe_allow_html=True,
+    )
+
+    # Hero block — part 2: CTA row rendered as REAL Streamlit widgets so the
+    # "Try the live demo" button can programmatically switch the nav via
+    # on_click=_go_to_demo. We wrap it in a .hero-cta-row div purely so the
+    # scoped CSS in the stylesheet can restyle these two buttons without
+    # affecting every other button on the page.
+    st.markdown('<div class="hero-cta-row">', unsafe_allow_html=True)
+    _spacer_l, _col_cta_a, _col_cta_b, _spacer_r = st.columns([1, 1, 1, 1])
+    with _col_cta_a:
+        st.button(
+            "Try the live demo →",
+            key="hero_cta_demo",
+            type="primary",
+            on_click=_go_to_demo,
+            use_container_width=True,
+        )
+    with _col_cta_b:
+        st.link_button(
+            "View source on GitHub ↗",
+            "https://github.com/mrpouyaalavi/CIFAR-10-Image-Classification",
+            use_container_width=True,
+        )
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Hero block — part 3: stats grid.
+    st.markdown(
+        f'''
+        <div class="hero" style="padding-top:0.8rem;">
             <div class="hero-stats">
                 <div class="stat-card">
                     <div class="val gradient">{best['test_accuracy']:.2f}%</div>
@@ -657,7 +798,11 @@ def render_prediction(
 
 
 def render_live_demo_tab(loaded_models: dict, device: torch.device, settings: dict) -> None:
-    st.markdown('<a id="live-demo"></a>', unsafe_allow_html=True)
+    # (Previously this function rendered an `<a id="live-demo"></a>` anchor so
+    # the hero CTA could `href="#live-demo"` from the Overview tab. That never
+    # worked because st.tabs hides inactive tab panels from the DOM, so the
+    # anchor target didn't exist. We now drive navigation with
+    # st.segmented_control + on_click callbacks, which *does* work.)
     st.markdown('<div class="section-title">Live demo</div>', unsafe_allow_html=True)
     st.markdown(
         '<p class="section-sub">Upload any image or pick one from the CIFAR-10 test set. '
@@ -996,7 +1141,7 @@ def render_about_tab() -> None:
                 🌐 <a href="https://www.pouyaalavi.dev" target="_blank" style="color:#a78bfa;">pouyaalavi.dev</a><br>
                 💼 <a href="https://www.linkedin.com/in/pouya-alavi" target="_blank" style="color:#a78bfa;">linkedin.com/in/pouya-alavi</a><br>
                 🐙 <a href="https://github.com/mrpouyaalavi" target="_blank" style="color:#a78bfa;">github.com/mrpouyaalavi</a><br>
-                📍 Sydney, Australia (open to relocation to the Netherlands)
+                📍 Sydney, Australia (open to relocation if needed)
             </p>
         </div>
         ''',
@@ -1014,23 +1159,39 @@ def main() -> None:
 
     settings = render_sidebar(loaded_models, device)
 
-    tab_overview, tab_demo, tab_models, tab_analysis, tab_about = st.tabs([
-        "🏠 Overview",
-        "🔬 Live Demo",
-        "📊 Models",
-        "🔍 Analysis",
-        "👤 About",
-    ])
+    # Initialize navigation state on first load. We do this BEFORE instantiating
+    # the widget so the widget picks up the default from session_state, and so
+    # callbacks (like the hero CTA) can safely mutate it.
+    if "nav" not in st.session_state:
+        st.session_state["nav"] = NAV_OVERVIEW
 
-    with tab_overview:
+    # NOTE: we intentionally do NOT use st.tabs here. st.tabs is a display-only
+    # container with no key=, no programmatic "set active tab" API, and its
+    # inactive tab panels are removed from the DOM entirely — which means the
+    # hero CTA can never switch to the Live Demo tab. st.segmented_control is
+    # a real widget with session_state backing, so we get a clickable CTA and
+    # deep-linkable nav for free.
+    selected = st.segmented_control(
+        "Navigation",
+        options=NAV_OPTIONS,
+        key="nav",
+        label_visibility="collapsed",
+    )
+
+    # Fallback: if the user somehow deselects (segmented_control allows this
+    # when no default is in session_state), treat it as Overview so we never
+    # render a blank page.
+    active = selected or NAV_OVERVIEW
+
+    if active == NAV_OVERVIEW:
         render_overview_tab()
-    with tab_demo:
+    elif active == NAV_LIVE_DEMO:
         render_live_demo_tab(loaded_models, device, settings)
-    with tab_models:
+    elif active == NAV_MODELS:
         render_models_tab()
-    with tab_analysis:
+    elif active == NAV_ANALYSIS:
         render_analysis_tab()
-    with tab_about:
+    elif active == NAV_ABOUT:
         render_about_tab()
 
     st.markdown(

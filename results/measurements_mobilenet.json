@@ -1,0 +1,73 @@
+{
+  "model": "MobileNetV2",
+  "device": "cpu",
+  "metrics": {
+    "accuracy_pct": 86.91,
+    "correct": 8691,
+    "total": 10000,
+    "conf_when_correct_pct": 89.6,
+    "conf_when_wrong_pct": 62.66,
+    "per_class_accuracy": {
+      "airplane": 88.7,
+      "automobile": 92.7,
+      "bird": 83.0,
+      "cat": 67.6,
+      "deer": 90.8,
+      "dog": 87.8,
+      "frog": 91.0,
+      "horse": 81.4,
+      "ship": 94.5,
+      "truck": 91.6
+    },
+    "confusion_pairs": [
+      {
+        "pair": "Truck \u2194 Automobile",
+        "classes": [
+          "automobile",
+          "truck"
+        ],
+        "count": 97
+      },
+      {
+        "pair": "Ship \u2194 Airplane",
+        "classes": [
+          "airplane",
+          "ship"
+        ],
+        "count": 83
+      },
+      {
+        "pair": "Cat \u2194 Dog",
+        "classes": [
+          "cat",
+          "dog"
+        ],
+        "count": 243
+      },
+      {
+        "pair": "Horse \u2194 Dog",
+        "classes": [
+          "dog",
+          "horse"
+        ],
+        "count": 68
+      },
+      {
+        "pair": "Bird \u2194 Deer",
+        "classes": [
+          "bird",
+          "deer"
+        ],
+        "count": 78
+      }
+    ]
+  },
+  "latency": {
+    "trials": 100,
+    "input_size": 224,
+    "median_ms": 17.278,
+    "mean_ms": 17.18,
+    "p95_ms": 18.068,
+    "min_ms": 16.388
+  }
+}

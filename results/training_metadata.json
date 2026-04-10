@@ -14,7 +14,7 @@
   "dataset": "CIFAR-10",
   "train_size": 50000,
   "test_size": 10000,
-  "note": "Canonical metrics live in benchmark_data.py (single source of truth). Custom CNN and MobileNetV2 numbers are verified empirically from the committed checkpoints on 2026-04-10; the other three architectures are reported from the original notebook study.",
+  "note": "Canonical metrics live in benchmark_data.py (single source of truth). Custom CNN latency re-measured 2026-04-11 with 100 trials (1.38 ms median, replacing the older 50-trial 1.03 ms figure). Custom CNN and MobileNetV2 accuracy numbers are verified empirically from the committed checkpoints (2026-04-10); the other three architectures are reported from the original notebook study.",
   "results": {
     "Custom CNN": {
       "strategy": "Trained from scratch",

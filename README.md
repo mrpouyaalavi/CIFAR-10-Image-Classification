@@ -58,12 +58,12 @@ The results have direct implications for:
 | **Test Accuracy** | 48.40% | **86.91%** | 🏆 MobileNetV2 |
 | **Trainable Params** | 2,462,282 | **12,810** | 🏆 MobileNetV2 |
 | **Model Size** | 9.42 MB | **8.76 MB** | 🏆 MobileNetV2 |
-| **CPU Latency (batch 1)** | **1.03 ms** | 17.22 ms | 🏆 Custom CNN |
-| **Throughput** | **~975 FPS** | ~58 FPS | 🏆 Custom CNN |
+| **CPU Latency (batch 1)** | **1.38 ms** | 17.22 ms | 🏆 Custom CNN |
+| **Throughput** | **~724 FPS** | ~58 FPS | 🏆 Custom CNN |
 
 </div>
 
-> All numbers are measured empirically from the committed checkpoints on the full 10 000-image CIFAR-10 test set (verified 2026-04-10). No cherry-picking, no leftover notebook metrics.
+> All numbers are measured empirically from the committed checkpoints on the full 10 000-image CIFAR-10 test set (accuracy verified 2026-04-10; Custom CNN latency re-measured 2026-04-11 with 100 trials on Apple silicon CPU, batch 1). No cherry-picking, no leftover notebook metrics.
 
 > **Key Finding:** MobileNetV2 achieves **86.91% accuracy** with just **0.5%** of the Custom CNN's trainable parameters — a **+38.5 percentage-point** lift for a **192× reduction in trainable weights**. Transfer learning doesn't just win on accuracy; it wins while training almost nothing at all.
 
@@ -363,7 +363,7 @@ CIFAR-10-Image-Classification/
 
 4. **Data efficiency matters** — With limited training data, transfer learning reaches production-grade accuracy in a single epoch while training from scratch barely starts to converge.
 
-5. **Speed vs. accuracy trade-off** — The Custom CNN is ~17× faster on CPU (1.03ms vs 17.22ms) due to native 32×32 input — relevant for latency-critical edge deployments where you can tolerate lower accuracy for 17× more headroom.
+5. **Speed vs. accuracy trade-off** — The Custom CNN is ~12× faster on CPU (1.38 ms vs 17.22 ms) due to native 32×32 input — relevant for latency-critical edge deployments where you can tolerate lower accuracy for 12× more headroom.
 
 <br/>
 

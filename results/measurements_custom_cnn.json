@@ -1,0 +1,73 @@
+{
+  "model": "Custom CNN",
+  "device": "cpu",
+  "metrics": {
+    "accuracy_pct": 48.4,
+    "correct": 4840,
+    "total": 10000,
+    "conf_when_correct_pct": 50.18,
+    "conf_when_wrong_pct": 34.88,
+    "per_class_accuracy": {
+      "airplane": 48.9,
+      "automobile": 84.1,
+      "bird": 8.2,
+      "cat": 14.8,
+      "deer": 25.1,
+      "dog": 37.3,
+      "frog": 80.7,
+      "horse": 66.3,
+      "ship": 60.7,
+      "truck": 57.9
+    },
+    "confusion_pairs": [
+      {
+        "pair": "Truck \u2194 Automobile",
+        "classes": [
+          "automobile",
+          "truck"
+        ],
+        "count": 432
+      },
+      {
+        "pair": "Ship \u2194 Airplane",
+        "classes": [
+          "airplane",
+          "ship"
+        ],
+        "count": 375
+      },
+      {
+        "pair": "Cat \u2194 Dog",
+        "classes": [
+          "cat",
+          "dog"
+        ],
+        "count": 333
+      },
+      {
+        "pair": "Horse \u2194 Dog",
+        "classes": [
+          "dog",
+          "horse"
+        ],
+        "count": 293
+      },
+      {
+        "pair": "Bird \u2194 Deer",
+        "classes": [
+          "bird",
+          "deer"
+        ],
+        "count": 180
+      }
+    ]
+  },
+  "latency": {
+    "trials": 100,
+    "input_size": 32,
+    "median_ms": 1.381,
+    "mean_ms": 1.35,
+    "p95_ms": 1.648,
+    "min_ms": 1.061
+  }
+}
