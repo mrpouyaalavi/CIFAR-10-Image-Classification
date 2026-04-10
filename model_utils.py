@@ -6,6 +6,8 @@ checkpoint loading. It is imported by app.py, and can also be used by
 predict.py and gradcam.py to eliminate duplication.
 """
 
+from __future__ import annotations
+
 import os
 
 import numpy as np
