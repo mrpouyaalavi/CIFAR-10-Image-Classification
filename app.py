@@ -13,6 +13,20 @@ Author : Pouya Alavi  (pouya@pouyaalavi.dev)
 Demo   : https://cifar10.pouyaalavi.dev
 Source : https://github.com/mrpouyaalavi/CIFAR-10-Image-Classification
 License: MIT
+
+Hosting note
+------------
+This app is deployed on Streamlit Community Cloud's free tier, which
+sleeps the container after ~7 days of inactivity and cold-starts it on
+the next visit (roughly 30–60 s while PyTorch and the model weights
+reload into memory). We intentionally do NOT implement keep-alive
+heartbeats or external pingers to work around this — the sleep behaviour
+is a hosting-tier limitation, not a code bug, and gaming it would
+violate Streamlit's ToS while still not fixing the underlying cost model.
+The honest user-facing message is the short "may take a few seconds to
+wake" note on the Overview tab. If zero cold starts become a hard
+requirement, the migration path is Fly.io / Railway / a small VPS —
+see the README's hosting section for specifics.
 """
 
 from __future__ import annotations
@@ -67,10 +81,20 @@ NAV_OPTIONS = [NAV_OVERVIEW, NAV_LIVE_DEMO, NAV_MODELS, NAV_ANALYSIS, NAV_ABOUT]
 # ============================================================================
 #  Page Config
 # ============================================================================
+#
+# Favicon strategy: Streamlit's `page_icon` accepts an emoji, a local file
+# path, a URL, or a PIL.Image. We ship a small SVG in `assets/favicon.svg`
+# (a rounded brand-gradient square with a 3-node NN glyph) and resolve it
+# relative to this file so the project keeps working from any CWD. If the
+# asset is ever missing at runtime — e.g. a partial clone — we degrade
+# cleanly to the original emoji instead of crashing the whole app.
+
+_FAVICON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "favicon.svg")
+_page_icon = _FAVICON_PATH if os.path.isfile(_FAVICON_PATH) else "🧠"
 
 st.set_page_config(
     page_title="CIFAR-10 Classifier — Pouya Alavi",
-    page_icon="🧠",
+    page_icon=_page_icon,
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
@@ -94,25 +118,37 @@ st.set_page_config(
 #   "light" — force light theme regardless of OS
 #   "dark"  — force dark theme regardless of OS
 #
-# Persistence:
-#   1. Within a session → st.session_state["theme"]
-#   2. Across reloads / bookmarks → URL query param ?theme=light|dark|auto
+# Persistence (in priority order, strongest wins):
+#   1. URL query param ?theme=light|dark|auto  (wins on this render)
+#   2. localStorage[cifar10_theme]              (restored on first visit)
+#   3. Session state                            (preserved across reruns)
+#   4. Default "auto"                           (OS-aware via CSS media query)
 #
-# Why URL query params and not localStorage: Streamlit components run inside
-# sandboxed iframes that can't read the parent's localStorage without a
-# bidirectional bridge. Query params are a clean, built-in Streamlit API and
-# survive reloads, tab-restore, and shared URLs — which is all a recruiter
-# actually needs.
+# The URL query param is authoritative because it's the only channel we can
+# read synchronously *server-side* in Python. We then run a small
+# `components.html` bridge on every render that keeps localStorage and the
+# URL in sync: if the URL has a theme, we mirror it into localStorage; if
+# the URL has no theme but localStorage does, we navigate the parent page to
+# add ?theme=<saved>, which triggers a single rerun where Python finally
+# sees the preference.
+#
+# This gives us three wins at once:
+#   • True localStorage persistence across devices, reloads, and bookmarks.
+#   • Shareable links that carry a theme in the URL still work (URL wins).
+#   • Graceful degradation: if localStorage is blocked (Safari private mode,
+#     storage access denied), the script silently gives up and the user
+#     falls back to the URL-param + session_state path, which is exactly
+#     what we had before.
 #
 # Implementation:
 #   CSS uses `--bg`, `--text`, etc. Custom properties. We emit ONE of three
 #   stylesheet bodies depending on the mode:
 #     • auto   → :root has dark values, @media (prefers-color-scheme: light)
-#                flips them. No JS needed.
+#                flips them. No JS needed for the actual colours.
 #     • light  → forces the light values on :root, no media query.
 #     • dark   → forces dark values on :root, no media query.
-#   This keeps the parent DOM manipulation to zero and works reliably inside
-#   Streamlit's rendering model.
+#   This keeps server-side rendering authoritative and avoids a theme flash
+#   on first paint — the bridge script only handles persistence.
 
 
 _DARK_VARS = """
@@ -336,6 +372,18 @@ def _build_css(theme_mode: str) -> str:
         padding: 0.08rem 0.35rem;
         border-radius: 5px;
         font-size: 0.85em;
+    }
+    /* Links inside the contact card use the theme-aware brand var so they
+       stay contrast-safe in both light and dark modes (the previous
+       hardcoded #a78bfa only read correctly on the dark palette). */
+    .contact-card a {
+        color: var(--brand);
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+        transition: border-color 120ms ease;
+    }
+    .contact-card a:hover {
+        border-bottom-color: var(--brand);
     }
 
     /* ── Prediction result card ── */
@@ -666,39 +714,203 @@ def _build_css(theme_mode: str) -> str:
     )
 
 
-def _resolve_theme_mode() -> str:
-    """Read theme mode from query params (persistent) → session_state → default.
+_VALID_THEMES = {"auto", "light", "dark"}
 
-    Normalizes to one of: "auto", "light", "dark".
+
+def _resolve_theme_mode() -> tuple[str, bool]:
+    """Resolve the active theme and report whether the URL carried it.
+
+    Returns
+    -------
+    (mode, url_had_theme)
+        * mode           - normalised theme string from {"auto","light","dark"}
+        * url_had_theme  - True iff st.query_params explicitly set ?theme=…
+                           on this request. The localStorage bridge uses this
+                           to decide whether to mirror URL→localStorage or
+                           restore localStorage→URL.
     """
-    valid = {"auto", "light", "dark"}
-
-    # URL query param wins on first load so the choice survives browser reloads
-    # and bookmarks. We intentionally use the new-style st.query_params API;
-    # this requires Streamlit >= 1.30 which our requirements.txt pins.
+    # URL query param is the authoritative channel: it's synchronous,
+    # server-side, and survives browser reloads / bookmarks. We intentionally
+    # use the new-style st.query_params API (Streamlit >= 1.30).
     url_theme = st.query_params.get("theme")
-    if url_theme in valid and "theme" not in st.session_state:
+    url_had_theme = url_theme in _VALID_THEMES
+    if url_had_theme:
         st.session_state["theme"] = url_theme
 
     st.session_state.setdefault("theme", "auto")
-    if st.session_state["theme"] not in valid:
+    if st.session_state["theme"] not in _VALID_THEMES:
         st.session_state["theme"] = "auto"
-    return st.session_state["theme"]
+    return st.session_state["theme"], url_had_theme
+
+
+def _inject_theme_bridge(current_theme: str, url_had_theme: bool) -> None:
+    """Run a tiny JS snippet that reconciles localStorage with the URL.
+
+    This is the only piece of client-side JS in the app. It lives inside a
+    zero-height Streamlit iframe (`components.html(..., height=0)`) and runs
+    once per rerun. On each run it does exactly one of three things:
+
+      (a) URL has ?theme=…   → persist that value into localStorage, so the
+                                next visit without a query param remembers it.
+      (b) URL has no ?theme=, localStorage has a saved value → navigate the
+          parent page to add ?theme=<saved>. Python will then see it on the
+          next rerun and honour it via `_resolve_theme_mode()`.
+      (c) Neither URL nor localStorage has a value → do nothing. The server
+          has already rendered in "auto" mode, which falls through to the
+          OS preference via CSS `@media (prefers-color-scheme)`.
+
+    All storage / navigation access is wrapped in try/catch so Safari
+    private-mode or "Block all cookies" users degrade to URL-param-only
+    persistence without any console spam.
+
+    Security:
+      We build the payload with `json.dumps` so the injected values survive
+      HTML escaping and can't break out of the script context, even though
+      the only values we emit are our own constants.
+    """
+    payload = json.dumps({
+        "currentTheme": current_theme,
+        "urlHadTheme": url_had_theme,
+    })
+    html = f"""
+<script>
+(function() {{
+  try {{
+    const data = {payload};
+    const LS_KEY = "cifar10_theme";
+    const VALID = ["auto", "light", "dark"];
+
+    // Try the parent page's localStorage first (works when the component
+    // iframe is same-origin with the Streamlit host). If cross-origin
+    // blocks it, fall back to the iframe's own storage — the bridge still
+    // works for same-browser persistence, just not across siblings.
+    let store;
+    try {{ store = window.parent.localStorage; }}
+    catch (e) {{ store = window.localStorage; }}
+
+    const saved = store.getItem(LS_KEY);
+
+    if (data.urlHadTheme) {{
+      // URL was authoritative this render → mirror into localStorage.
+      if (saved !== data.currentTheme) {{
+        try {{ store.setItem(LS_KEY, data.currentTheme); }} catch (e) {{}}
+      }}
+      return;
+    }}
+
+    // URL had nothing. If localStorage has a valid saved value, push it
+    // onto the parent URL so Python picks it up on the next rerun.
+    if (saved && VALID.indexOf(saved) !== -1) {{
+      let targetHref = null;
+      try {{
+        const parentUrl = new URL(window.parent.location.href);
+        parentUrl.searchParams.set("theme", saved);
+        targetHref = parentUrl.toString();
+      }} catch (e) {{
+        // Cross-origin: use document.referrer as a best-effort fallback.
+        try {{
+          const refUrl = new URL(document.referrer);
+          refUrl.searchParams.set("theme", saved);
+          targetHref = refUrl.toString();
+        }} catch (e2) {{
+          return;
+        }}
+      }}
+      if (targetHref) {{
+        try {{ window.parent.location.href = targetHref; }}
+        catch (e) {{ window.top.location.href = targetHref; }}
+      }}
+    }}
+  }} catch (e) {{
+    // Storage or navigation blocked. Degrade silently — URL-param-only
+    // persistence still works.
+    if (window.console) {{ console.warn("[cifar10] theme bridge disabled:", e); }}
+  }}
+}})();
+</script>
+"""
+    # Prefer the modern `st.html(..., unsafe_allow_javascript=True)` API when
+    # it exists (Streamlit ≥ 1.46), which silences the "components.v1.html
+    # will be removed after 2026-06-01" deprecation warning and keeps this
+    # app compatible with Streamlit's future releases. On older runtimes
+    # we fall back to the legacy components API, which works identically.
+    try:
+        st.html(html, unsafe_allow_javascript=True)  # type: ignore[call-arg]
+    except (AttributeError, TypeError):
+        components.html(html, height=0)
 
 
 # Apply the initial theme CSS before any widgets render so there's no flash.
-_current_theme = _resolve_theme_mode()
+_current_theme, _url_had_theme = _resolve_theme_mode()
 st.markdown(_build_css(_current_theme), unsafe_allow_html=True)
+_inject_theme_bridge(_current_theme, _url_had_theme)
 
 
 # ============================================================================
-#  Cached resources
+#  Cached resources — lazy model loading
 # ============================================================================
+#
+# Cold-start philosophy: on a free-tier container every megabyte and every
+# second of import-time counts, so we do the absolute minimum at boot:
+#
+#   1. `_get_device()`       → pick CUDA/MPS/CPU, cap CPU threads, cache forever
+#   2. `_available_models()` → list filenames on disk, nothing instantiated
+#   3. `_load_model_cached()`→ invoked only when the user actually needs a
+#                              specific model for inference. Streamlit's
+#                              `cache_resource` holds it in memory for the
+#                              whole process, so subsequent reruns are free.
+#
+# This replaces the old eager `_load_models()` that loaded every checkpoint
+# at boot regardless of whether the visitor ever navigated to Live Demo.
+# With lazy loading the Models / Analysis / About tabs cold-start in O(0)
+# model-loads, and the Live Demo tab pays for exactly one model the first
+# time it renders (both if the user enables compare mode).
+#
+# NOTE on `st.cache_resource`: the decorator keys caches by the *arguments*,
+# so `_load_model_cached("MobileNetV2", "cpu")` and the "cuda" variant are
+# separate cache entries. We pass `device.type` (a short string) rather than
+# the `torch.device` object itself because torch.device isn't hashable in a
+# way Streamlit's cache key hasher loves.
+
 
 @st.cache_resource(show_spinner=False)
-def _load_models():
-    device = select_device()
-    return load_models(device), device
+def _get_device() -> torch.device:
+    """Pick the best device once per process, with CPU thread capping.
+
+    Priority unchanged from `select_device`: CUDA > MPS > CPU. On CPU-only
+    hosts (like Streamlit Community Cloud) we cap torch's intra-op thread
+    pool so the shared container doesn't oversubscribe the CPU when
+    multiple requests interleave. This bound was chosen empirically — too
+    low starves single-image inference, too high fights neighbouring apps
+    on the same host.
+    """
+    device = select_device(verbose=True)
+    if device.type == "cpu":
+        try:
+            torch.set_num_threads(max(1, min(4, os.cpu_count() or 2)))
+        except Exception:
+            # set_num_threads raises if called after any inter-op has run;
+            # silently tolerate because the default thread count is still
+            # sensible on free-tier hosts.
+            pass
+    return device
+
+
+@st.cache_resource(show_spinner=False)
+def _available_model_names() -> list[str]:
+    """Filesystem-only scan of registered model checkpoints. Safe at boot."""
+    return list_available_models()
+
+
+@st.cache_resource(show_spinner="Loading model…")
+def _load_model_cached(name: str, device_type: str):
+    """Instantiate + load one model on demand. Cached for the process lifetime.
+
+    The Streamlit cache_resource decorator guarantees we only pay the model
+    load cost once per (name, device) pair even if the user toggles between
+    models or reruns the script by interacting with widgets.
+    """
+    return load_model_by_name(name, torch.device(device_type))
 
 
 @st.cache_resource(show_spinner=False)
@@ -707,6 +919,30 @@ def _load_cifar10_test():
         root="./data", train=False, download=True,
         transform=transforms.ToTensor(),
     )
+
+
+@st.cache_resource(show_spinner=False)
+def _load_confusion_matrices() -> dict | None:
+    """Read the pre-computed confusion matrices JSON once per process.
+
+    The matrices were computed from the verified checkpoints against the
+    full 10 000-image CIFAR-10 test set (see results/confusion_matrices.json
+    provenance note). Returning None lets callers hide the section gracefully
+    if the file is missing — which happens on minimal clones / CI sandboxes
+    and should never crash the Analysis tab.
+    """
+    path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "results",
+        "confusion_matrices.json",
+    )
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return None
 
 
 # ============================================================================
@@ -755,10 +991,15 @@ def _render_theme_toggle() -> None:
         st.rerun()
 
 
-def _render_runtime_panel(loaded_models: dict, device: torch.device) -> None:
-    """Shared runtime/status block used by both sidebar modes."""
-    loaded_names = list(loaded_models.keys())
+def _render_runtime_panel(available_names: list[str], device: torch.device) -> None:
+    """Shared runtime/status block used by both sidebar modes.
 
+    `available_names` is the list of model keys whose checkpoints exist on
+    disk, NOT the set of models currently loaded into memory. With lazy
+    loading those are different: a model is only instantiated the first time
+    the user actually runs inference on it. Surfacing the *available* count
+    is the honest thing to show in a status panel.
+    """
     # describe_device() returns a human-readable string like
     # "MPS — Apple Silicon (arm64)" or "CUDA — NVIDIA A100 (40.0 GB)". The
     # deployed Streamlit Community Cloud instance is always CPU, but the
@@ -780,7 +1021,7 @@ def _render_runtime_panel(loaded_models: dict, device: torch.device) -> None:
 
     deployed = sum(1 for m in BENCHMARK_METRICS.values() if m["available"])
     st.sidebar.markdown(
-        f"**Models loaded**  {len(loaded_names)} / {deployed} deployed"
+        f"**Checkpoints available**  {len(available_names)} / {deployed} deployed"
     )
     st.sidebar.markdown(
         f"**Trained architectures**  {_TOTAL_TRAINED} "
@@ -819,15 +1060,13 @@ def _recommended_model(loaded_names: list[str]) -> str:
     return loaded_names[0]
 
 
-def render_live_demo_sidebar(loaded_models: dict, device: torch.device) -> dict:
+def render_live_demo_sidebar(available_names: list[str], device: torch.device) -> dict:
     """Full control set. Only shown when the Live Demo tab is active."""
     st.sidebar.markdown("## Live demo controls")
     st.sidebar.caption("Configure the model and visualisation used on this tab.")
 
-    loaded_names = list(loaded_models.keys())
-
-    if loaded_names:
-        default = _recommended_model(loaded_names)
+    if available_names:
+        default = _recommended_model(available_names)
         # Annotate the options so the recommended model is visually obvious
         # in the dropdown itself. We keep the raw key as the return value and
         # only rewrite the label via format_func.
@@ -838,8 +1077,8 @@ def render_live_demo_sidebar(loaded_models: dict, device: torch.device) -> dict:
 
         selected_model = st.sidebar.selectbox(
             "Model",
-            loaded_names,
-            index=loaded_names.index(default),
+            available_names,
+            index=available_names.index(default),
             format_func=_label,
             help=(
                 "Choose the model to run inference with. "
@@ -863,11 +1102,11 @@ def render_live_demo_sidebar(loaded_models: dict, device: torch.device) -> dict:
                 "Heatmap opacity", 0.1, 0.9, 0.5, 0.05,
             )
         compare_mode = False
-        if len(loaded_names) > 1:
+        if len(available_names) > 1:
             compare_mode = st.sidebar.checkbox(
                 "Compare deployed models",
                 value=False,
-                help="Run every loaded model on the same image, side-by-side.",
+                help="Run every deployed model on the same image, side-by-side.",
             )
     else:
         selected_model = None
@@ -877,7 +1116,7 @@ def render_live_demo_sidebar(loaded_models: dict, device: torch.device) -> dict:
         compare_mode = False
 
     st.sidebar.markdown("---")
-    _render_runtime_panel(loaded_models, device)
+    _render_runtime_panel(available_names, device)
     st.sidebar.markdown("---")
     _render_theme_toggle()
     _render_sidebar_links()
@@ -891,7 +1130,7 @@ def render_live_demo_sidebar(loaded_models: dict, device: torch.device) -> dict:
     }
 
 
-def render_info_sidebar(loaded_models: dict, device: torch.device) -> dict:
+def render_info_sidebar(available_names: list[str], device: torch.device) -> dict:
     """Lightweight sidebar rendered on every non-Live-Demo tab.
 
     We intentionally do NOT show model selection, top-k, Grad-CAM or compare
@@ -913,15 +1152,14 @@ def render_info_sidebar(loaded_models: dict, device: torch.device) -> dict:
     )
 
     st.sidebar.markdown("---")
-    _render_runtime_panel(loaded_models, device)
+    _render_runtime_panel(available_names, device)
     st.sidebar.markdown("---")
     _render_theme_toggle()
     _render_sidebar_links()
 
     # Return default settings; these are only consumed by the Live Demo tab
     # anyway, so values here are effectively unused on other tabs.
-    loaded_names = list(loaded_models.keys())
-    default_model = _recommended_model(loaded_names) if loaded_names else None
+    default_model = _recommended_model(available_names) if available_names else None
     return {
         "selected_model": default_model,
         "top_k": 5,
@@ -1202,12 +1440,18 @@ def render_prediction(
             st.image(overlay, caption="Overlay", width="stretch")
         with col_b:
             import matplotlib.pyplot as plt
+            # Transparent figure + theme-aware title color so the Grad-CAM
+            # heatmap reads correctly in both light and dark modes. The
+            # heatmap itself is `jet` regardless — that's the scientific
+            # convention and doesn't depend on page background.
+            _theme = st.session_state.get("theme", "auto")
+            _title_color = "#1e293b" if _theme == "light" else "#94a3b8"
             fig, ax = plt.subplots(figsize=(3, 3))
-            fig.patch.set_facecolor("#0a0a0f")
-            ax.set_facecolor("#0a0a0f")
+            fig.patch.set_alpha(0.0)
+            ax.set_facecolor("none")
             ax.imshow(heatmap, cmap="jet")
             ax.axis("off")
-            ax.set_title("Activation Map", fontsize=9, color="#94a3b8", pad=8)
+            ax.set_title("Activation Map", fontsize=9, color=_title_color, pad=8)
             st.pyplot(fig, width="stretch")
             plt.close(fig)
 
@@ -1254,7 +1498,11 @@ def _set_random_sample() -> None:
     _set_cifar_sample(idx)
 
 
-def render_live_demo_tab(loaded_models: dict, device: torch.device, settings: dict) -> None:
+def render_live_demo_tab(
+    available_names: list[str],
+    device: torch.device,
+    settings: dict,
+) -> None:
     # (Previously this function rendered an `<a id="live-demo"></a>` anchor so
     # the hero CTA could `href="#live-demo"` from the Overview tab. That never
     # worked because st.tabs hides inactive tab panels from the DOM, so the
@@ -1268,7 +1516,7 @@ def render_live_demo_tab(loaded_models: dict, device: torch.device, settings: di
         unsafe_allow_html=True,
     )
 
-    if not loaded_models:
+    if not available_names:
         st.error(
             "No model checkpoints found. Place `.pth` files in the `checkpoints/` "
             "directory, then reload the app."
@@ -1382,9 +1630,24 @@ def render_live_demo_tab(loaded_models: dict, device: torch.device, settings: di
 
     # ── Determine which models to run ────────────────────────────
     if settings["compare_mode"]:
-        models_to_run = list(loaded_models.keys())
+        models_to_run = list(available_names)
     else:
         models_to_run = [settings["selected_model"]]
+
+    # Lazy-load each selected model via the cached helper. First use of a
+    # given model pays the load cost once; every subsequent rerun (slider
+    # drag, preset click, Grad-CAM toggle) hits the in-process cache and
+    # returns instantly. This is the key win over the old eager loader:
+    # visitors who never touch Live Demo never pay for MobileNetV2 at all.
+    def _get_model(name: str):
+        try:
+            return _load_model_cached(name, device.type)
+        except FileNotFoundError as exc:
+            st.error(f"Checkpoint missing for **{name}**: {exc}")
+            return None
+        except RuntimeError as exc:
+            st.error(f"Checkpoint for **{name}** doesn't match the architecture: {exc}")
+            return None
 
     if len(models_to_run) == 1:
         col_img, col_pred = st.columns([1, 2])
@@ -1394,11 +1657,13 @@ def render_live_demo_tab(loaded_models: dict, device: torch.device, settings: di
                 st.caption(f"True label: **{true_label}**")
         with col_pred:
             name = models_to_run[0]
-            render_prediction(
-                loaded_models[name], name, image, device,
-                settings["top_k"], settings["show_gradcam"],
-                settings["gradcam_alpha"], true_label,
-            )
+            model = _get_model(name)
+            if model is not None:
+                render_prediction(
+                    model, name, image, device,
+                    settings["top_k"], settings["show_gradcam"],
+                    settings["gradcam_alpha"], true_label,
+                )
     else:
         st.image(image, caption="Input image", width=220)
         if true_label is not None:
@@ -1406,11 +1671,13 @@ def render_live_demo_tab(loaded_models: dict, device: torch.device, settings: di
         cols = st.columns(len(models_to_run))
         for col, name in zip(cols, models_to_run):
             with col:
-                render_prediction(
-                    loaded_models[name], name, image, device,
-                    settings["top_k"], settings["show_gradcam"],
-                    settings["gradcam_alpha"], true_label,
-                )
+                model = _get_model(name)
+                if model is not None:
+                    render_prediction(
+                        model, name, image, device,
+                        settings["top_k"], settings["show_gradcam"],
+                        settings["gradcam_alpha"], true_label,
+                    )
 
 
 # ============================================================================
@@ -1492,6 +1759,88 @@ def render_models_tab() -> None:
 #  Tab 4 — Error Analysis
 # ============================================================================
 
+def _render_confusion_heatmap(
+    matrix: list[list[int]],
+    classes: list[str],
+    title: str,
+    theme_mode: str,
+) -> None:
+    """Render a 10×10 row-normalised confusion-matrix heatmap.
+
+    Design choices:
+
+    * Row normalisation (each row sums to 100 %) because CIFAR-10 is balanced
+      but the reader is asking "given the true class, how often did the model
+      predict each other class" — that's a per-row question, not a per-cell
+      question. Raw counts hide the relative severity of misclassification
+      on smaller classes; percentages do not.
+    * Sequential colormap (matplotlib `Purples`) to match the brand palette
+      and to stay readable on both light and dark themes (transparent fig
+      background means cell luminance + auto text colour handles contrast).
+    * Cell text is white on dark cells and near-black on light cells, driven
+      by a luminance threshold. This is the standard readable-annotation
+      pattern for heatmaps — eyeballing `cmap(0.5)` and picking manually is a
+      guaranteed way to ship unreadable cells.
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib.cm as mpl_cm
+
+    # Row-normalise to percentages. Zero-row guard in case a class is
+    # somehow absent from the eval set (never happens on CIFAR-10 but the
+    # divide-by-zero would be user-visible if it did).
+    totals = [max(sum(row), 1) for row in matrix]
+    norm = np.array([
+        [100.0 * c / t for c in row]
+        for row, t in zip(matrix, totals)
+    ])
+
+    # Theme-aware label colour. We keep the figure background transparent
+    # so the surrounding card's colour shows through cleanly in both themes,
+    # and pick a single grey that clears WCAG AA on both backgrounds.
+    axis_color = "#1e293b" if theme_mode == "light" else "#cbd5e1"
+    grid_color = "#cbd5e1" if theme_mode == "light" else "#334155"
+
+    fig, ax = plt.subplots(figsize=(5.2, 4.8))
+    fig.patch.set_alpha(0.0)          # transparent — let the Streamlit card show
+    ax.set_facecolor("none")
+
+    cmap = mpl_cm.get_cmap("Purples")
+    im = ax.imshow(norm, cmap=cmap, vmin=0, vmax=100, aspect="equal")
+
+    ax.set_xticks(range(len(classes)))
+    ax.set_yticks(range(len(classes)))
+    ax.set_xticklabels(classes, rotation=45, ha="right", fontsize=8, color=axis_color)
+    ax.set_yticklabels(classes, fontsize=8, color=axis_color)
+    ax.set_xlabel("Predicted", fontsize=9, color=axis_color, labelpad=6)
+    ax.set_ylabel("True",      fontsize=9, color=axis_color, labelpad=6)
+    ax.set_title(title, fontsize=10, color=axis_color, pad=10)
+    for spine in ax.spines.values():
+        spine.set_color(grid_color)
+
+    # Annotate each cell with its percentage. Auto-pick text colour from
+    # the cell's luminance so the digits never vanish into the background.
+    for i in range(len(classes)):
+        for j in range(len(classes)):
+            val = norm[i, j]
+            rgba = cmap(val / 100.0)
+            luminance = 0.2126 * rgba[0] + 0.7152 * rgba[1] + 0.0722 * rgba[2]
+            text_color = "#ffffff" if luminance < 0.55 else "#1e1b4b"
+            ax.text(
+                j, i, f"{val:.0f}" if val >= 1 else "·",
+                ha="center", va="center",
+                fontsize=7, color=text_color,
+            )
+
+    cbar = fig.colorbar(im, ax=ax, shrink=0.85, pad=0.02)
+    cbar.ax.tick_params(labelsize=7, colors=axis_color)
+    cbar.outline.set_edgecolor(grid_color)
+    cbar.set_label("% of true class", fontsize=8, color=axis_color)
+
+    fig.tight_layout()
+    st.pyplot(fig, width="stretch")
+    plt.close(fig)
+
+
 def render_analysis_tab() -> None:
     st.markdown('<div class="section-title">Per-class error analysis</div>', unsafe_allow_html=True)
     st.markdown(
@@ -1523,6 +1872,37 @@ def render_analysis_tab() -> None:
             ),
         },
     )
+
+    # ── Full confusion matrix heatmap ─────────────────────────────
+    # Row-normalised so each row reads as "given the true class, what does
+    # the model predict?". The strong diagonal is the story: MobileNetV2's
+    # transfer-learning head is almost entirely correct, with residual mass
+    # concentrated in the cat↔dog quadrant and the vehicle pair. Data is
+    # pre-computed from the verified checkpoint (see results/ JSON) so the
+    # Analysis tab does not pay a full eval pass on cold-start.
+    _cm_data = _load_confusion_matrices()
+    if _cm_data is not None and "MobileNetV2" in _cm_data.get("matrices", {}):
+        st.markdown(
+            '<div class="section-title" style="margin-top:2rem;">Confusion matrix</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<p class="section-sub">Row-normalised confusion matrix for MobileNetV2 on the '
+            'full 10 000-image CIFAR-10 test set. Each row sums to 100 % of that class\'s '
+            'true images; the diagonal is "got it right". The visible residual — a soft '
+            'cat ↔ dog block and a dimmer truck ↔ automobile pair — matches the '
+            'hardest-pair table above and confirms the model\'s errors are concentrated '
+            'on genuinely similar classes, not random noise.</p>',
+            unsafe_allow_html=True,
+        )
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        _render_confusion_heatmap(
+            matrix=_cm_data["matrices"]["MobileNetV2"],
+            classes=list(_cm_data["classes"]),
+            title="MobileNetV2 — row-normalised confusion matrix",
+            theme_mode=st.session_state.get("theme", "auto"),
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="section-title" style="margin-top:2rem;">Training configuration</div>', unsafe_allow_html=True)
     cfg_col1, cfg_col2 = st.columns(2)
@@ -1660,14 +2040,22 @@ def render_about_tab() -> None:
     st.markdown(
         '''
         <p class="section-sub">
-            I'm <b>Pouya Alavi</b>, a Bachelor of Information Technology student at
-            Macquarie University majoring in Artificial Intelligence and Web/App
-            Development. I built this project to practice the full loop of ML
-            engineering I care about most: <em>reproducible training</em>,
-            <em>honest benchmarking</em>, <em>interpretability</em>, and a
-            <em>polished delivery surface</em>. It started as a uni assignment
-            and kept growing whenever I wanted to sharpen one of those
-            disciplines in isolation.
+            Hi, I'm <b>Pouya Alavi</b>. This is a small portfolio piece I keep
+            coming back to whenever I want to sharpen one discipline of ML
+            engineering in isolation — reproducible training runs, benchmarks
+            I'm willing to defend, interpretability that a reviewer can
+            actually inspect, and a delivery surface I'd be comfortable
+            handing to a non-technical stakeholder. Everything on this page
+            is computed from the same two checkpoints the Live Demo tab
+            loads, so the numbers, the confusion matrix, and the Grad-CAM
+            overlays all describe the <em>same</em> models — not a marketing
+            version of them.
+        </p>
+        <p class="section-sub" style="margin-top:0.6rem;">
+            I'm currently finishing a Bachelor of Information Technology at
+            Macquarie University (AI and Web/App Development majors) and
+            looking for early-career roles where the same disciplines
+            matter.
         </p>
         ''',
         unsafe_allow_html=True,
@@ -1712,12 +2100,12 @@ def render_about_tab() -> None:
     st.markdown('<div class="section-title" style="margin-top:2rem;">Get in touch</div>', unsafe_allow_html=True)
     st.markdown(
         '''
-        <div class="glass-card">
+        <div class="glass-card contact-card">
             <p>
-                📧 <a href="mailto:pouya@pouyaalavi.dev" style="color:#a78bfa;">pouya@pouyaalavi.dev</a><br>
-                🌐 <a href="https://www.pouyaalavi.dev" target="_blank" style="color:#a78bfa;">pouyaalavi.dev</a><br>
-                💼 <a href="https://www.linkedin.com/in/pouya-alavi" target="_blank" style="color:#a78bfa;">linkedin.com/in/pouya-alavi</a><br>
-                🐙 <a href="https://github.com/mrpouyaalavi" target="_blank" style="color:#a78bfa;">github.com/mrpouyaalavi</a><br>
+                📧 <a href="mailto:pouya@pouyaalavi.dev">pouya@pouyaalavi.dev</a><br>
+                🌐 <a href="https://www.pouyaalavi.dev" target="_blank">pouyaalavi.dev</a><br>
+                💼 <a href="https://www.linkedin.com/in/pouya-alavi" target="_blank">linkedin.com/in/pouya-alavi</a><br>
+                🐙 <a href="https://github.com/mrpouyaalavi" target="_blank">github.com/mrpouyaalavi</a><br>
                 📍 Sydney, Australia (open to relocation if needed)
             </p>
         </div>
@@ -1731,8 +2119,13 @@ def render_about_tab() -> None:
 # ============================================================================
 
 def main() -> None:
-    with st.spinner("Waking models…"):
-        loaded_models, device = _load_models()
+    # Lazy boot: we resolve the device and *list* the available checkpoints,
+    # but we do NOT load any model into memory yet. The Live Demo tab is the
+    # only place model weights are actually needed, and it loads on demand
+    # via `_load_model_cached()`. On tabs that don't use the model (Overview,
+    # Models, Analysis, About) this gets us O(0) model-loads at cold start.
+    device = _get_device()
+    available_names = _available_model_names()
 
     # Initialize navigation state on first load. We do this BEFORE instantiating
     # the widget so the widget picks up the default from session_state, and so
@@ -1747,9 +2140,9 @@ def main() -> None:
     active_preview = st.session_state.get("nav") or NAV_OVERVIEW
 
     if active_preview == NAV_LIVE_DEMO:
-        settings = render_live_demo_sidebar(loaded_models, device)
+        settings = render_live_demo_sidebar(available_names, device)
     else:
-        settings = render_info_sidebar(loaded_models, device)
+        settings = render_info_sidebar(available_names, device)
 
     # NOTE: we intentionally do NOT use st.tabs here. st.tabs is a display-only
     # container with no key=, no programmatic "set active tab" API, and its
@@ -1772,7 +2165,7 @@ def main() -> None:
     if active == NAV_OVERVIEW:
         render_overview_tab()
     elif active == NAV_LIVE_DEMO:
-        render_live_demo_tab(loaded_models, device, settings)
+        render_live_demo_tab(available_names, device, settings)
     elif active == NAV_MODELS:
         render_models_tab()
     elif active == NAV_ANALYSIS:
