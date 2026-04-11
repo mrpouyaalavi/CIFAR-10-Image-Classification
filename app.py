@@ -709,6 +709,286 @@ def _build_css(theme_mode: str) -> str:
         background: var(--chip-green-bg);
         border-color: var(--chip-green-bd);
     }
+
+    /* ============================================================
+       Widget-surface theme overrides
+       ============================================================
+       Streamlit's config.toml pins `base = "dark"`, which means
+       every BaseWeb widget we DON'T explicitly restyle falls back
+       to the dark palette — i.e. a dark surface and near-white
+       icons. That renders correctly in dark mode but leaks
+       through in light mode as "dark boxes on a white page" and
+       "invisible header icons". Every rule below uses theme-aware
+       CSS vars so it produces the right result in both modes
+       without duplicating the stylesheet. */
+
+    /* Top-right toolbar: Share, Star, Edit, GitHub, and the
+       hamburger menu. In light mode these SVGs were rendering
+       with near-white `fill="currentColor"` against a white
+       background and disappearing. Forcing `color: var(--text)`
+       on every descendant repaints the icons to the theme's
+       foreground colour in both modes. */
+    [data-testid="stHeader"],
+    [data-testid="stToolbar"] {
+        background: transparent !important;
+    }
+    [data-testid="stToolbar"] *,
+    [data-testid="stHeader"] button,
+    [data-testid="stHeader"] svg,
+    [data-testid="stMainMenu"] button,
+    [data-testid="stMainMenu"] svg,
+    [data-testid="stDecoration"] {
+        color: var(--text) !important;
+        fill: currentColor !important;
+    }
+    [data-testid="stToolbar"] button:hover,
+    [data-testid="stHeader"] button:hover {
+        background: var(--brand-bg-soft) !important;
+        color: var(--brand) !important;
+    }
+
+    /* Selectbox (Model picker in sidebar). BaseWeb select has a
+       dark 1c1f26-ish surface by default; we repaint it to the
+       card surface with theme-aware border and text. */
+    [data-baseweb="select"] > div {
+        background: var(--bg-raised) !important;
+        border-color: var(--border) !important;
+        color: var(--text) !important;
+    }
+    [data-baseweb="select"] input,
+    [data-baseweb="select"] div[role="button"] {
+        color: var(--text) !important;
+    }
+    [data-baseweb="select"] svg { fill: var(--text-muted) !important; }
+    [data-baseweb="select"]:hover > div {
+        border-color: var(--border-brand) !important;
+    }
+    /* Dropdown popover + menu items (opens above the viewport,
+       so it's outside the normal widget tree and needs its own
+       surface rules). */
+    [data-baseweb="popover"] [data-baseweb="menu"],
+    [data-baseweb="popover"] ul {
+        background: var(--bg-raised) !important;
+        border: 1px solid var(--border) !important;
+        box-shadow: 0 8px 32px var(--brand-glow) !important;
+    }
+    [data-baseweb="popover"] li {
+        background: transparent !important;
+        color: var(--text) !important;
+    }
+    [data-baseweb="popover"] li:hover {
+        background: var(--brand-bg-soft) !important;
+        color: var(--brand) !important;
+    }
+    [data-baseweb="popover"] li[aria-selected="true"] {
+        background: var(--brand-bg-sel) !important;
+        color: var(--brand-text) !important;
+    }
+
+    /* Text / number inputs — the Live Demo tab uses st.number_input
+       for the CIFAR sample index. BaseWeb input has the same
+       dark-by-default surface problem as select. */
+    [data-baseweb="input"],
+    [data-baseweb="base-input"],
+    [data-testid="stNumberInput"] input,
+    [data-testid="stTextInput"] input,
+    [data-testid="stTextArea"] textarea {
+        background: var(--bg-raised) !important;
+        border-color: var(--border) !important;
+        color: var(--text) !important;
+    }
+    [data-baseweb="input"] input { color: var(--text) !important; }
+    [data-baseweb="input"]:focus-within,
+    [data-testid="stNumberInput"] input:focus,
+    [data-testid="stTextInput"] input:focus {
+        border-color: var(--brand) !important;
+        box-shadow: 0 0 0 2px var(--brand-bg-soft) !important;
+        outline: none !important;
+    }
+    /* Number input +/- step buttons */
+    [data-testid="stNumberInput"] button {
+        background: var(--brand-bg-soft) !important;
+        color: var(--brand) !important;
+        border: 1px solid var(--border) !important;
+    }
+    [data-testid="stNumberInput"] button:hover {
+        background: var(--brand-bg-hover) !important;
+    }
+    [data-testid="stNumberInput"] button svg { fill: currentColor !important; }
+
+    /* Slider (top-k, Grad-CAM opacity). BaseWeb slider uses a
+       dark track colour; we repaint the *track* and *thumb*
+       while keeping the brand gradient on the active fill. */
+    [data-baseweb="slider"] [role="slider"] {
+        background: var(--brand) !important;
+        border: 2px solid var(--bg-raised) !important;
+        box-shadow: 0 2px 8px var(--brand-glow) !important;
+    }
+    [data-testid="stSlider"] [data-baseweb="slider"] > div > div {
+        background: var(--border) !important;
+    }
+    [data-testid="stSlider"] label,
+    [data-testid="stSlider"] div[data-testid="stTickBar"] span {
+        color: var(--text-muted) !important;
+    }
+
+    /* Checkbox + radio — BaseWeb renders both controls with a
+       dark 1c1f26 fill when unchecked. Repaint to the raised
+       surface so they sit on a white card cleanly. */
+    [data-baseweb="checkbox"] span[role="checkbox"],
+    [data-baseweb="checkbox"] div[role="checkbox"] {
+        background: var(--bg-raised) !important;
+        border-color: var(--border) !important;
+    }
+    [data-baseweb="checkbox"] span[aria-checked="true"],
+    [data-baseweb="checkbox"] div[aria-checked="true"] {
+        background: var(--brand) !important;
+        border-color: var(--brand) !important;
+    }
+    [data-baseweb="radio"] div[role="radio"] {
+        background: var(--bg-raised) !important;
+        border-color: var(--border) !important;
+    }
+    [data-baseweb="radio"] div[aria-checked="true"] {
+        background: var(--brand) !important;
+        border-color: var(--brand) !important;
+    }
+    /* Horizontal radio labels (used by the theme toggle) */
+    [data-testid="stRadio"] label {
+        color: var(--text) !important;
+    }
+
+    /* File uploader — we already set the outer dashed border via
+       --uploader-bg / --uploader-bd. The internals (drop zone
+       background, "Browse files" button, uploaded-file chip) are
+       still dark in light mode and need explicit overrides. */
+    [data-testid="stFileUploaderDropzone"],
+    [data-testid="stFileUploaderDropzoneInstructions"] {
+        background: transparent !important;
+        color: var(--text-muted) !important;
+    }
+    [data-testid="stFileUploaderDropzoneInstructions"] span,
+    [data-testid="stFileUploaderDropzoneInstructions"] small {
+        color: var(--text-muted) !important;
+    }
+    [data-testid="stFileUploaderDropzone"] button {
+        background: var(--brand-bg-soft) !important;
+        color: var(--brand) !important;
+        border: 1px solid var(--border-brand) !important;
+    }
+    [data-testid="stFileUploaderDropzone"] button:hover {
+        background: var(--brand-bg-hover) !important;
+    }
+    [data-testid="stFileUploaderFile"] {
+        background: var(--bg-raised) !important;
+        border: 1px solid var(--border) !important;
+        color: var(--text) !important;
+    }
+    [data-testid="stFileUploaderFile"] small { color: var(--text-muted) !important; }
+    [data-testid="stFileUploaderFile"] svg { fill: var(--text-muted) !important; }
+
+    /* Alert boxes (st.info / st.success / st.warning / st.error).
+       Streamlit renders these through [data-testid="stAlert"]
+       containers whose dark-mode background is near-opaque and
+       does not read on white. Repaint them with a soft tint that
+       still signals status in light mode. */
+    [data-testid="stAlert"] {
+        background: var(--brand-bg-soft) !important;
+        border: 1px solid var(--border-brand) !important;
+        color: var(--text) !important;
+    }
+    [data-testid="stAlert"] [data-testid="stMarkdownContainer"] {
+        color: var(--text) !important;
+    }
+    [data-testid="stAlert"] svg { fill: var(--brand) !important; }
+    /* Variant tints so success / warning / error are still
+       distinguishable without redesigning them. */
+    [data-testid="stAlertContentSuccess"],
+    [data-testid="stNotificationContentSuccess"] {
+        background: var(--chip-green-bg) !important;
+        border-color: var(--chip-green-bd) !important;
+    }
+    [data-testid="stAlertContentSuccess"] svg,
+    [data-testid="stNotificationContentSuccess"] svg { fill: var(--chip-green-fg) !important; }
+    [data-testid="stAlertContentError"],
+    [data-testid="stNotificationContentError"] {
+        background: rgba(220, 38, 38, 0.08) !important;
+        border-color: rgba(220, 38, 38, 0.30) !important;
+    }
+    [data-testid="stAlertContentError"] svg,
+    [data-testid="stNotificationContentError"] svg { fill: #dc2626 !important; }
+    [data-testid="stAlertContentWarning"],
+    [data-testid="stNotificationContentWarning"] {
+        background: rgba(217, 119, 6, 0.08) !important;
+        border-color: rgba(217, 119, 6, 0.30) !important;
+    }
+    [data-testid="stAlertContentWarning"] svg,
+    [data-testid="stNotificationContentWarning"] svg { fill: #d97706 !important; }
+
+    /* Tooltips shown on `help=` hover — BaseWeb tooltip is a
+       dark bubble by default. Invert it in light mode via the
+       theme vars. */
+    [data-baseweb="tooltip"] {
+        background: var(--text) !important;
+        color: var(--bg-raised) !important;
+        border: 1px solid var(--border) !important;
+    }
+
+    /* Dataframe cells. The Streamlit DataFrame renders its own
+       surface through a Glide canvas; we can at least repaint
+       the container + header row via the public test IDs. */
+    [data-testid="stDataFrame"] {
+        background: var(--bg-raised) !important;
+    }
+    [data-testid="stDataFrame"] * { color: var(--text); }
+
+    /* Line chart container — the convergence chart on the
+       Analysis tab. Vega renders its own SVG, but we can at
+       least ensure the chart wrapper has a theme-correct
+       background so it doesn't float as a dark block on white. */
+    [data-testid="stVegaLiteChart"],
+    [data-testid="stArrowVegaLiteChart"] {
+        background: var(--bg-raised) !important;
+        border: 1px solid var(--border-soft) !important;
+        border-radius: 12px;
+        padding: 0.5rem;
+    }
+
+    /* Caption and small muted text */
+    [data-testid="stCaptionContainer"],
+    .stCaption {
+        color: var(--text-muted) !important;
+    }
+
+    /* Inline <code> outside glass-card (e.g. runtime panel) */
+    code {
+        background: var(--brand-bg-soft);
+        color: var(--brand-text);
+        border-radius: 5px;
+        padding: 0.08rem 0.35rem;
+    }
+
+    /* Image container — st.image wraps the <img> in a div that
+       BaseWeb gives a dark fallback background to. On light-mode
+       transparent PNGs (like our Grad-CAM overlays), that dark
+       background bleeds through. Clear it. */
+    [data-testid="stImage"] { background: transparent !important; }
+    [data-testid="stImage"] figcaption,
+    [data-testid="stImageCaption"] { color: var(--text-muted) !important; }
+
+    /* Link-button secondary variant (hero CTA row) — the base
+       .stLinkButton already has overrides inside .hero-cta-row;
+       this is the catch-all for any other link buttons that
+       might be added later. */
+    .stLinkButton > a {
+        color: var(--brand) !important;
+        background: var(--brand-bg-soft) !important;
+        border: 1px solid var(--border-brand) !important;
+        text-decoration: none !important;
+    }
+    .stLinkButton > a:hover {
+        background: var(--brand-bg-hover) !important;
+    }
 </style>
 """
     )
