@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CIFAR-10 portfolio favicon.
+  Minimal mark: rounded square in the brand gradient + a stylised
+  3-node neural-network glyph. Designed to stay legible at 16×16.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="CIFAR-10 classifier">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="55%" stop-color="#6d28d9"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="14" ry="14" fill="url(#bg)"/>
+  <!-- Three input nodes -->
+  <circle cx="18" cy="18" r="4.5" fill="#ffffff"/>
+  <circle cx="18" cy="32" r="4.5" fill="#ffffff"/>
+  <circle cx="18" cy="46" r="4.5" fill="#ffffff"/>
+  <!-- One output node -->
+  <circle cx="46" cy="32" r="6"   fill="#ffffff"/>
+  <!-- Connecting edges -->
+  <g stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" opacity="0.92">
+    <line x1="22" y1="18" x2="41" y2="30"/>
+    <line x1="22" y1="32" x2="41" y2="32"/>
+    <line x1="22" y1="46" x2="41" y2="34"/>
+  </g>
+</svg>
