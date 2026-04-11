@@ -1,8 +1,19 @@
+# Streamlit's built-in theme values.
+#
+# We only set the brand primaryColor here. Background / text colors are
+# deliberately NOT set — the app paints everything itself via CSS custom
+# properties (see _build_css() in app.py) so it can switch cleanly between
+# light, dark, and system-aware modes at runtime. Hardcoding Streamlit's
+# backgroundColor here would force a single theme and defeat the toggle.
+#
+# `base = "dark"` just tells Streamlit to render its own widgets with the
+# dark variant of BaseWeb's default palette, which is what our custom CSS
+# targets by default. Users who pick light mode via the sidebar toggle get
+# a fully overridden light palette from our own stylesheet.
+
 [theme]
+base = "dark"
 primaryColor = "#7c3aed"
-backgroundColor = "#0a0a0f"
-secondaryBackgroundColor = "#12121a"
-textColor = "#e8e8ed"
 font = "sans serif"
 
 [server]
