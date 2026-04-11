@@ -482,18 +482,26 @@ def _build_css(theme_mode: str) -> str:
     .stTabs [data-baseweb="tab-border"] { display: none; }
 
     /* ── Top-level navigation (st.segmented_control) ──
+       IMPORTANT — testid reality check (verified against Streamlit 1.56's
+       compiled ButtonGroup.*.js and src.*.js bundles, not guessed):
+
+         st.segmented_control emits
+           <div data-testid="stButtonGroup">            ← container
+             <button data-testid="stBaseButton-segmented_control">        ← pill
+             <button data-testid="stBaseButton-segmented_controlActive"> ← selected pill
+             ...
+
+       Earlier versions of this file targeted "stSegmentedControl", which
+       does NOT exist in Streamlit 1.56 — every rule in the old block was
+       a silent no-op, which is why the pills rendered with BaseWeb's
+       default dark surface in light mode.
+
        Responsive rules:
        • On wide viewports the pill row is centred.
        • On narrow viewports it becomes a single-row horizontal scroller so
          labels are never truncated.
-
-       Streamlit 1.56 renders segmented_control buttons as
-       `<button><div class="…BaseButton…">label</div></button>`. In light
-       mode the INNER div carries the BaseWeb dark surface colour, so
-       clearing only `button`'s background left a black pill. We clear
-       every descendant's background here (::before / ::after included)
-       and repaint the active pill via :has() + attribute selectors. */
-    div[data-testid="stSegmentedControl"] {
+    */
+    div[data-testid="stButtonGroup"] {
         display: flex;
         justify-content: center;
         margin: 0.3rem 0 1rem 0;
@@ -501,73 +509,55 @@ def _build_css(theme_mode: str) -> str:
         -webkit-overflow-scrolling: touch;
         scrollbar-width: thin;
         padding-bottom: 4px;
-    }
-    div[data-testid="stSegmentedControl"] > div {
+        flex-wrap: nowrap !important;
+        gap: 4px;
         background: var(--brand-bg-soft) !important;
+        border: 1px solid var(--border-soft);
         border-radius: 12px;
         padding: 5px;
-        border: 1px solid var(--border-soft);
-        gap: 0;
-        flex-wrap: nowrap !important;
         min-width: min-content;
+        width: fit-content;
+        margin-left: auto;
+        margin-right: auto;
     }
-    /* Nuke every descendant's background — we keep the outer <button>/<label>
-       as the only paintable surface inside each pill. This is the only
-       selector specific enough to beat BaseWeb's inline / styled-components
-       rules across every Streamlit 1.5x patch version we've tested. */
-    div[data-testid="stSegmentedControl"] button,
-    div[data-testid="stSegmentedControl"] button *,
-    div[data-testid="stSegmentedControl"] label,
-    div[data-testid="stSegmentedControl"] label * {
+    /* Every BaseButton kind that segmented_control can emit — unselected
+       and selected. We match by prefix so any future casing change still
+       catches. */
+    div[data-testid="stButtonGroup"] button[data-testid^="stBaseButton-segmented_control"],
+    div[data-testid="stButtonGroup"] button[data-testid^="stBaseButton-pills"] {
         background: transparent !important;
         background-color: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-    }
-    div[data-testid="stSegmentedControl"] button {
-        border-radius: 9px !important;
         color: var(--text-muted) !important;
+        border: 1px solid transparent !important;
+        border-radius: 9px !important;
+        box-shadow: none !important;
         font-weight: 500 !important;
         font-size: 0.88rem !important;
         padding: 0.55rem 1.1rem !important;
         white-space: nowrap !important;
-        transition: all 0.2s ease !important;
+        transition: background 0.2s ease, color 0.2s ease !important;
     }
-    div[data-testid="stSegmentedControl"] button > div,
-    div[data-testid="stSegmentedControl"] label > div {
-        color: var(--text-muted) !important;
+    /* Every descendant — clear the dark BaseWeb inner-div paint that
+       only shows through when you inspect with devtools. */
+    div[data-testid="stButtonGroup"] button[data-testid^="stBaseButton-segmented_control"] *,
+    div[data-testid="stButtonGroup"] button[data-testid^="stBaseButton-pills"] * {
+        background: transparent !important;
+        background-color: transparent !important;
+        color: inherit !important;
     }
-    div[data-testid="stSegmentedControl"] button:hover,
-    div[data-testid="stSegmentedControl"] button:hover > div {
+    div[data-testid="stButtonGroup"] button[data-testid^="stBaseButton-segmented_control"]:hover,
+    div[data-testid="stButtonGroup"] button[data-testid^="stBaseButton-pills"]:hover {
+        background: var(--brand-bg-hover) !important;
         color: var(--brand-text) !important;
     }
-    div[data-testid="stSegmentedControl"] button:hover {
-        background: var(--brand-bg-hover) !important;
-    }
-    /* Selected pill — cover every attribute variant Streamlit has used.
-       We repaint the outer <button>/<label> (the only element we left
-       paintable above) and also pin the immediate flex wrapper child
-       so the highlight reads consistently on every 1.5x revision. */
-    div[data-testid="stSegmentedControl"] button[aria-pressed="true"],
-    div[data-testid="stSegmentedControl"] button[data-selected="true"],
-    div[data-testid="stSegmentedControl"] button[kind="segmented_controlActive"],
-    div[data-testid="stSegmentedControl"] button[kind="pillsActive"],
-    div[data-testid="stSegmentedControl"] label:has(input:checked),
-    div[data-testid="stSegmentedControl"] label:has(input:checked) button,
-    div[data-testid="stSegmentedControl"] button[aria-pressed="true"] > div,
-    div[data-testid="stSegmentedControl"] button[data-selected="true"] > div,
-    div[data-testid="stSegmentedControl"] label:has(input:checked) > div {
+    /* Selected variant — Streamlit appends "Active" to the kind. */
+    div[data-testid="stButtonGroup"] button[data-testid="stBaseButton-segmented_controlActive"],
+    div[data-testid="stButtonGroup"] button[data-testid="stBaseButton-pillsActive"] {
         background: var(--brand-bg-sel) !important;
         background-color: var(--brand-bg-sel) !important;
-    }
-    div[data-testid="stSegmentedControl"] button[aria-pressed="true"],
-    div[data-testid="stSegmentedControl"] button[aria-pressed="true"] > div,
-    div[data-testid="stSegmentedControl"] button[data-selected="true"],
-    div[data-testid="stSegmentedControl"] button[data-selected="true"] > div,
-    div[data-testid="stSegmentedControl"] button[kind="segmented_controlActive"],
-    div[data-testid="stSegmentedControl"] button[kind="segmented_controlActive"] > div,
-    div[data-testid="stSegmentedControl"] label:has(input:checked) button > div {
         color: var(--brand-text) !important;
+        border: 1px solid var(--border-brand) !important;
+        font-weight: 600 !important;
     }
 
     /* ── Hero CTA row (native st.button + st.link_button) ── */
@@ -610,32 +600,103 @@ def _build_css(theme_mode: str) -> str:
     [data-testid="stFileUploader"] small { color: var(--text-muted) !important; }
 
     /* ── Buttons ── */
-    /* Streamlit 1.56 wraps the label in a <div> under <button> that
-       carries a dark BaseWeb surface colour. Clearing only the outer
-       <button>'s background leaves a dark pill under the label in
-       light mode (visible on preset buttons, Load sample, Random
-       sample, etc.). We paint ONLY the outer <button>, and force
-       every descendant transparent so the paint shines through. */
-    .stButton > button {
+    /* Testid reality check (Streamlit 1.56, verified in src.*.js):
+       st.button emits
+         <div data-testid="stButton">
+           <button data-testid="stBaseButton-secondary">         ← the painted element
+             <div>label</div>
+
+       The painted element is the INNER <button>, keyed by kind
+       (primary / secondary / tertiary / minimal / form_submit / ...).
+       The outer <div data-testid="stButton"> is only a layout wrapper.
+       Earlier rules of the form `.stButton > button` matched nothing
+       because there's no <button> as a direct child of stButton — the
+       inner <button> has its own stBaseButton-* testid. We target the
+       inner button directly and also zero every descendant to kill the
+       dark BaseWeb inner-div paint. */
+    [data-testid="stButton"] button[data-testid^="stBaseButton-"],
+    button[data-testid="stBaseButton-secondary"],
+    button[data-testid="stBaseButton-tertiary"],
+    button[data-testid="stBaseButton-minimal"] {
         background: var(--brand-bg-soft) !important;
+        background-color: var(--brand-bg-soft) !important;
         color: var(--brand-text) !important;
         border: 1px solid var(--border-brand) !important;
         border-radius: 10px !important;
         font-weight: 600 !important;
         font-size: 0.85rem !important;
         letter-spacing: 0.02em;
+        box-shadow: none !important;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
-    .stButton > button * {
+    [data-testid="stButton"] button[data-testid^="stBaseButton-"] *,
+    button[data-testid^="stBaseButton-"] > div,
+    button[data-testid^="stBaseButton-"] > div > * {
         background: transparent !important;
         background-color: transparent !important;
         color: inherit !important;
     }
-    .stButton > button:hover {
+    [data-testid="stButton"] button[data-testid^="stBaseButton-"]:hover {
         background: var(--brand-bg-hover) !important;
         border-color: var(--brand) !important;
         box-shadow: 0 0 20px var(--brand-glow) !important;
         transform: translateY(-1px);
+    }
+    /* Primary variant keeps its gradient (hero CTA). */
+    button[data-testid="stBaseButton-primary"] {
+        background: linear-gradient(135deg, var(--brand-strong), var(--brand)) !important;
+        color: #ffffff !important;
+        border: none !important;
+    }
+    button[data-testid="stBaseButton-primary"] * {
+        background: transparent !important;
+        color: inherit !important;
+    }
+
+    /* ── Top-right app header chrome ──
+       The "Share" / deploy / main-menu cluster lives as SIBLINGS of
+       [data-testid="stToolbar"], not inside it. Streamlit gives them
+       their own testids:
+         stAppDeployButton    — the purple/black square next to Share
+         stMainMenuButton     — the hamburger ⋮ menu
+         stToolbarActionButton + stToolbarActionButtonLabel/Icon
+                              — each action button inside stToolbarActions
+
+       Earlier the rules only targeted [data-testid="stToolbar"], which
+       never reached these siblings. We repaint each one here so they
+       blend with the light-mode header. */
+    [data-testid="stAppDeployButton"],
+    [data-testid="stAppDeployButton"] > *,
+    [data-testid="stAppDeployButton"] button,
+    [data-testid="stAppDeployButton"] button *,
+    [data-testid="stMainMenuButton"],
+    [data-testid="stMainMenuButton"] *,
+    [data-testid="stToolbarActionButton"],
+    [data-testid="stToolbarActionButton"] *,
+    [data-testid="stToolbarActions"],
+    [data-testid="stToolbarActions"] * {
+        background: transparent !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+    }
+    [data-testid="stAppDeployButton"] button,
+    [data-testid="stMainMenuButton"] button,
+    [data-testid="stToolbarActionButton"] button {
+        color: var(--text-muted) !important;
+        border: 1px solid var(--border-soft) !important;
+        border-radius: 8px !important;
+    }
+    [data-testid="stAppDeployButton"] button:hover,
+    [data-testid="stMainMenuButton"] button:hover,
+    [data-testid="stToolbarActionButton"] button:hover {
+        background: var(--brand-bg-soft) !important;
+        color: var(--brand-text) !important;
+    }
+    [data-testid="stAppDeployButton"] svg,
+    [data-testid="stMainMenuButton"] svg,
+    [data-testid="stToolbarActionButton"] svg {
+        fill: var(--text-muted) !important;
+        color: var(--text-muted) !important;
     }
 
     /* ── Dataframes ── */
@@ -915,6 +976,28 @@ def _build_css(theme_mode: str) -> str:
         background: var(--brand) !important;
         border-color: var(--brand) !important;
     }
+    /* BaseWeb renders the check square as an inner <span> under the
+       label whose background is inlined via emotion styled-components.
+       The only selector that reliably overrides it in light mode is
+       the `stCheckbox` widget testid + every descendant span that
+       isn't the checked state. */
+    [data-testid="stCheckbox"] label > span:first-child,
+    [data-testid="stCheckbox"] span[role="checkbox"],
+    [data-testid="stCheckbox"] [data-baseweb="checkbox"] > div:first-child,
+    [data-testid="stCheckbox"] [data-baseweb="checkbox"] span:first-child {
+        background: var(--bg-raised) !important;
+        background-color: var(--bg-raised) !important;
+        border: 1.5px solid var(--border-brand) !important;
+        border-radius: 4px !important;
+    }
+    [data-testid="stCheckbox"] label > span:first-child[aria-checked="true"],
+    [data-testid="stCheckbox"] span[role="checkbox"][aria-checked="true"],
+    [data-testid="stCheckbox"] [data-baseweb="checkbox"] span[aria-checked="true"] {
+        background: var(--brand) !important;
+        background-color: var(--brand) !important;
+        border-color: var(--brand) !important;
+    }
+    [data-testid="stCheckbox"] label { color: var(--text) !important; }
     [data-baseweb="radio"] div[role="radio"] {
         background: var(--bg-raised) !important;
         border-color: var(--border) !important;
@@ -2255,12 +2338,53 @@ def render_models_tab() -> None:
         unsafe_allow_html=True,
     )
 
-    chart_df = pd.DataFrame({
-        "Epoch": list(range(1, len(next(iter(CONVERGENCE_HISTORY.values()))) + 1)),
-        **{name: hist for name, hist in CONVERGENCE_HISTORY.items()},
-    }).set_index("Epoch")
+    # We render the convergence chart through matplotlib (not st.line_chart)
+    # because Vega-Lite's generated SVG carries its own theme background
+    # that CSS on the wrapper cannot touch — in light mode the chart area
+    # stayed dark under a white page. Matplotlib lets us emit a fully
+    # transparent figure that inherits the card surface, the same pattern
+    # the confusion-matrix heatmap already uses.
+    import matplotlib.pyplot as _cvg_plt
 
-    st.line_chart(chart_df, height=320, width="stretch")
+    _epochs = list(range(1, len(next(iter(CONVERGENCE_HISTORY.values()))) + 1))
+    # Neutral slate tone for axes/labels — reads on both themes (WCAG AA).
+    _cvg_axis = "#64748b"
+    _cvg_grid = (100 / 255, 116 / 255, 139 / 255, 0.25)
+    # Brand palette ordered for deterministic line assignment.
+    _cvg_palette = ["#7c3aed", "#0ea5e9", "#10b981", "#f59e0b", "#ec4899"]
+
+    _cvg_fig, _cvg_ax = _cvg_plt.subplots(figsize=(8.8, 3.6))
+    _cvg_fig.patch.set_alpha(0.0)
+    _cvg_ax.set_facecolor("none")
+
+    for _i, (_name, _hist) in enumerate(CONVERGENCE_HISTORY.items()):
+        _cvg_ax.plot(
+            _epochs,
+            _hist,
+            label=_name,
+            color=_cvg_palette[_i % len(_cvg_palette)],
+            linewidth=2.2,
+            marker="o",
+            markersize=4,
+        )
+
+    _cvg_ax.set_xlabel("Epoch", color=_cvg_axis, fontsize=10)
+    _cvg_ax.set_ylabel("Validation accuracy (%)", color=_cvg_axis, fontsize=10)
+    _cvg_ax.set_ylim(0, 100)
+    _cvg_ax.set_xticks(_epochs)
+    _cvg_ax.tick_params(colors=_cvg_axis, labelsize=8)
+    for _spine in _cvg_ax.spines.values():
+        _spine.set_color(_cvg_grid)
+    _cvg_ax.grid(True, color=_cvg_grid, linewidth=0.8)
+    _legend = _cvg_ax.legend(
+        loc="lower right",
+        frameon=False,
+        fontsize=9,
+        labelcolor=_cvg_axis,
+    )
+    _cvg_fig.tight_layout()
+    st.pyplot(_cvg_fig, clear_figure=True, use_container_width=True)
+    _cvg_plt.close(_cvg_fig)
 
 
 # ============================================================================
@@ -2507,44 +2631,52 @@ def render_analysis_tab() -> None:
         'what it is good for, and where its limits are.</p>',
         unsafe_allow_html=True,
     )
+    # IMPORTANT: keep this HTML flush-left (no leading indentation on
+    # inner lines). CommonMark's indented-code-block rule turns any
+    # block of 4+ leading spaces that follows a blank line into a
+    # `<pre>` block, and since Streamlit's `st.markdown` runs the
+    # content through markdown-it before the HTML sanitiser, indenting
+    # the inner `<dt>`/`<dd>` lines caused everything after the first
+    # `<dd>` to render as literal source in a dark syntax-highlighted
+    # code block. No blank lines and no leading whitespace is the only
+    # reliable fix; dedenting via textwrap also works but is easy to
+    # accidentally reintroduce on a later edit.
     st.markdown(
-        '''
-        <div class="model-card">
-            <h3>CIFAR-10 classifier — portfolio study</h3>
-            <dl>
-                <dt>Training data</dt>
-                <dd>CIFAR-10: 50 000 labelled 32×32 RGB images across 10 balanced classes
-                    (airplane, automobile, bird, cat, deer, dog, frog, horse, ship, truck).
-                    Reserved 10 000 images for testing.</dd>
-
-                <dt>Intended use</dt>
-                <dd>Educational exploration of transfer learning, interpretability, and
-                    ML-engineering discipline on a small-image benchmark. Demonstrates an
-                    end-to-end pipeline suitable for portfolio review.</dd>
-
-                <dt>Out-of-scope uses</dt>
-                <dd>Not intended for real-world image classification, content moderation,
-                    safety-critical systems, or any decision-making context where a wrong
-                    prediction has a meaningful cost. CIFAR-10 is a low-resolution research
-                    benchmark, not a production dataset.</dd>
-
-                <dt>Known limitations</dt>
-                <dd>
-                    • 32×32 training resolution — loses fine detail that real photos rely on.<br>
-                    • 10 classes only — anything outside these classes gets force-mapped to the
-                      nearest lookalike (e.g. bicycle → automobile, wolf → dog).<br>
-                    • Frozen ImageNet features inherit whatever biases exist in ImageNet.<br>
-                    • Distribution shift: performance drops sharply on images that do not look
-                      like centred, cleanly-cropped, daylight CIFAR-10 samples.
-                </dd>
-
-                <dt>Evaluation</dt>
-                <dd>All metrics on this site come from the full 10 000-image test set and
-                    are mirrored across README, training metadata JSON, and the comparison
-                    table — a single source of truth in <code>benchmark_data.py</code>.</dd>
-            </dl>
-        </div>
-        ''',
+        '<div class="model-card">'
+        '<h3>CIFAR-10 classifier — portfolio study</h3>'
+        '<dl>'
+        '<dt>Training data</dt>'
+        '<dd>CIFAR-10: 50 000 labelled 32×32 RGB images across 10 balanced '
+        'classes (airplane, automobile, bird, cat, deer, dog, frog, horse, '
+        'ship, truck). Reserved 10 000 images for testing.</dd>'
+        '<dt>Intended use</dt>'
+        '<dd>Educational exploration of transfer learning, interpretability, '
+        'and ML-engineering discipline on a small-image benchmark. '
+        'Demonstrates an end-to-end pipeline suitable for portfolio review.</dd>'
+        '<dt>Out-of-scope uses</dt>'
+        '<dd>Not intended for real-world image classification, content '
+        'moderation, safety-critical systems, or any decision-making context '
+        'where a wrong prediction has a meaningful cost. CIFAR-10 is a '
+        'low-resolution research benchmark, not a production dataset.</dd>'
+        '<dt>Known limitations</dt>'
+        '<dd><ul style="margin:0.4rem 0 0 1.1rem; padding:0;">'
+        '<li>32×32 training resolution — loses fine detail that real photos '
+        'rely on.</li>'
+        '<li>10 classes only — anything outside these classes gets '
+        'force-mapped to the nearest lookalike (e.g. bicycle → automobile, '
+        'wolf → dog).</li>'
+        '<li>Frozen ImageNet features inherit whatever biases exist in '
+        'ImageNet.</li>'
+        '<li>Distribution shift: performance drops sharply on images that do '
+        'not look like centred, cleanly-cropped, daylight CIFAR-10 samples.</li>'
+        '</ul></dd>'
+        '<dt>Evaluation</dt>'
+        '<dd>All metrics on this site come from the full 10 000-image test '
+        'set and are mirrored across README, training metadata JSON, and the '
+        'comparison table — a single source of truth in '
+        '<code>benchmark_data.py</code>.</dd>'
+        '</dl>'
+        '</div>',
         unsafe_allow_html=True,
     )
 
