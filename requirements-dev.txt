@@ -1,0 +1,9 @@
+# ── Developer / CI dependencies ────────────────────────────────────────────
+# Installed on top of requirements.txt in CI and for local development.
+# Deliberately separate so the deployed Streamlit container doesn't pull
+# test-only packages into its cold-start path.
+
+-r requirements.txt
+
+pytest>=8.0.0
+pytest-cov>=4.1.0
