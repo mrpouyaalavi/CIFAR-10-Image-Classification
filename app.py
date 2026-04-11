@@ -630,8 +630,8 @@ def _build_css(theme_mode: str) -> str:
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     [data-testid="stButton"] button[data-testid^="stBaseButton-"] *,
-    button[data-testid^="stBaseButton-"] > div,
-    button[data-testid^="stBaseButton-"] > div > * {
+    [data-testid="stButton"] button[data-testid^="stBaseButton-"] > div,
+    [data-testid="stButton"] button[data-testid^="stBaseButton-"] > div > * {
         background: transparent !important;
         background-color: transparent !important;
         color: inherit !important;
@@ -665,19 +665,37 @@ def _build_css(theme_mode: str) -> str:
        Earlier the rules only targeted [data-testid="stToolbar"], which
        never reached these siblings. We repaint each one here so they
        blend with the light-mode header. */
+    /* Background clearing — target div wrappers and buttons only, NOT
+       their inner icon elements (span / svg). Modern Streamlit renders
+       toolbar icons via CSS masks (-webkit-mask-image + background-color)
+       or icon fonts; blanket-clearing * { background: transparent } makes
+       those icons invisible. */
     [data-testid="stAppDeployButton"],
-    [data-testid="stAppDeployButton"] > *,
+    [data-testid="stAppDeployButton"] div,
     [data-testid="stAppDeployButton"] button,
-    [data-testid="stAppDeployButton"] button *,
     [data-testid="stMainMenuButton"],
-    [data-testid="stMainMenuButton"] *,
+    [data-testid="stMainMenuButton"] div,
+    [data-testid="stMainMenuButton"] button,
     [data-testid="stToolbarActionButton"],
-    [data-testid="stToolbarActionButton"] *,
+    [data-testid="stToolbarActionButton"] div,
+    [data-testid="stToolbarActionButton"] button,
     [data-testid="stToolbarActions"],
-    [data-testid="stToolbarActions"] * {
+    [data-testid="stToolbarActions"] div {
         background: transparent !important;
         background-color: transparent !important;
         box-shadow: none !important;
+    }
+    /* Force visible colour on EVERY descendant — handles SVGs
+       (fill/stroke = currentColor), icon fonts (color), and CSS-mask
+       icons (background-color inherits from currentColor when not
+       cleared). */
+    [data-testid="stAppDeployButton"] *,
+    [data-testid="stMainMenuButton"] *,
+    [data-testid="stToolbarActionButton"] *,
+    [data-testid="stToolbarActions"] * {
+        color: var(--text-muted) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
     }
     [data-testid="stToolbarActions"],
     [data-testid="stToolbarActionButton"],
@@ -700,6 +718,11 @@ def _build_css(theme_mode: str) -> str:
     [data-testid="stMainMenuButton"] button:hover,
     [data-testid="stToolbarActionButton"] button:hover {
         background: var(--brand-bg-soft) !important;
+        color: var(--brand-text) !important;
+    }
+    [data-testid="stAppDeployButton"] button:hover *,
+    [data-testid="stMainMenuButton"] button:hover *,
+    [data-testid="stToolbarActionButton"] button:hover * {
         color: var(--brand-text) !important;
     }
     [data-testid="stAppDeployButton"] svg,
@@ -899,23 +922,27 @@ def _build_css(theme_mode: str) -> str:
         background: transparent !important;
         background-color: transparent !important;
     }
-    /* Clear every descendant background inside the header bar so the
-       small "Share" / Deploy / menu chips don't render as black
-       rectangles on white in light mode. Hover states below repaint
-       deliberately. */
-    [data-testid="stHeader"] *,
-    [data-testid="stToolbar"] *,
-    [data-testid="stStatusWidget"] * {
+    /* Clear backgrounds on div wrappers and buttons only — NOT on span
+       or svg icon elements. Modern Streamlit can render toolbar icons
+       via CSS masks (-webkit-mask-image + background-color) or icon
+       fonts; blanket-clearing * { background: transparent } makes those
+       icons invisible, leaving empty rounded boxes. */
+    [data-testid="stHeader"] div,
+    [data-testid="stHeader"] button,
+    [data-testid="stToolbar"] div,
+    [data-testid="stToolbar"] button,
+    [data-testid="stStatusWidget"] div {
         background: transparent !important;
         background-color: transparent !important;
     }
+    /* Paint EVERY descendant with the correct foreground colour.
+       Covers SVGs (fill/stroke = currentColor), icon fonts (color),
+       and CSS-mask icons (background-color follows currentColor). */
+    [data-testid="stHeader"] *,
     [data-testid="stToolbar"] *,
-    [data-testid="stHeader"] button,
-    [data-testid="stHeader"] svg,
-    [data-testid="stMainMenu"] button,
-    [data-testid="stMainMenu"] svg,
-    [data-testid="stDecoration"] {
-        color: var(--text) !important;
+    [data-testid="stMainMenu"] *,
+    [data-testid="stDecoration"] * {
+        color: var(--text-muted) !important;
         opacity: 1 !important;
         visibility: visible !important;
     }
@@ -950,6 +977,10 @@ def _build_css(theme_mode: str) -> str:
     [data-testid="stHeader"] button:hover {
         background: var(--brand-bg-soft) !important;
         background-color: var(--brand-bg-soft) !important;
+        color: var(--brand) !important;
+    }
+    [data-testid="stToolbar"] button:hover *,
+    [data-testid="stHeader"] button:hover * {
         color: var(--brand) !important;
     }
 
