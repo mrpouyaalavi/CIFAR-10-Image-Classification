@@ -679,12 +679,22 @@ def _build_css(theme_mode: str) -> str:
         background-color: transparent !important;
         box-shadow: none !important;
     }
+    [data-testid="stToolbarActions"],
+    [data-testid="stToolbarActionButton"],
+    [data-testid="stAppDeployButton"],
+    [data-testid="stMainMenuButton"] {
+        position: relative !important;
+        z-index: 1000 !important;
+        pointer-events: auto !important;
+    }
     [data-testid="stAppDeployButton"] button,
     [data-testid="stMainMenuButton"] button,
     [data-testid="stToolbarActionButton"] button {
         color: var(--text-muted) !important;
         border: 1px solid var(--border-soft) !important;
         border-radius: 8px !important;
+        opacity: 1 !important;
+        visibility: visible !important;
     }
     [data-testid="stAppDeployButton"] button:hover,
     [data-testid="stMainMenuButton"] button:hover,
@@ -695,8 +705,45 @@ def _build_css(theme_mode: str) -> str:
     [data-testid="stAppDeployButton"] svg,
     [data-testid="stMainMenuButton"] svg,
     [data-testid="stToolbarActionButton"] svg {
-        fill: var(--text-muted) !important;
         color: var(--text-muted) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    [data-testid="stAppDeployButton"] svg path,
+    [data-testid="stAppDeployButton"] svg rect,
+    [data-testid="stAppDeployButton"] svg circle,
+    [data-testid="stAppDeployButton"] svg ellipse,
+    [data-testid="stAppDeployButton"] svg polygon,
+    [data-testid="stAppDeployButton"] svg polyline,
+    [data-testid="stAppDeployButton"] svg line,
+    [data-testid="stMainMenuButton"] svg path,
+    [data-testid="stMainMenuButton"] svg rect,
+    [data-testid="stMainMenuButton"] svg circle,
+    [data-testid="stMainMenuButton"] svg ellipse,
+    [data-testid="stMainMenuButton"] svg polygon,
+    [data-testid="stMainMenuButton"] svg polyline,
+    [data-testid="stMainMenuButton"] svg line,
+    [data-testid="stToolbarActionButton"] svg path,
+    [data-testid="stToolbarActionButton"] svg rect,
+    [data-testid="stToolbarActionButton"] svg circle,
+    [data-testid="stToolbarActionButton"] svg ellipse,
+    [data-testid="stToolbarActionButton"] svg polygon,
+    [data-testid="stToolbarActionButton"] svg polyline,
+    [data-testid="stToolbarActionButton"] svg line {
+        fill: currentColor !important;
+        stroke: currentColor !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    [data-testid="stAppDeployButton"] svg [fill="none"],
+    [data-testid="stMainMenuButton"] svg [fill="none"],
+    [data-testid="stToolbarActionButton"] svg [fill="none"] {
+        fill: none !important;
+    }
+    [data-testid="stAppDeployButton"] svg [stroke="none"],
+    [data-testid="stMainMenuButton"] svg [stroke="none"],
+    [data-testid="stToolbarActionButton"] svg [stroke="none"] {
+        stroke: none !important;
     }
 
     /* ── Dataframes ── */
@@ -869,7 +916,35 @@ def _build_css(theme_mode: str) -> str:
     [data-testid="stMainMenu"] svg,
     [data-testid="stDecoration"] {
         color: var(--text) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    [data-testid="stHeader"] svg path,
+    [data-testid="stHeader"] svg rect,
+    [data-testid="stHeader"] svg circle,
+    [data-testid="stHeader"] svg ellipse,
+    [data-testid="stHeader"] svg polygon,
+    [data-testid="stHeader"] svg polyline,
+    [data-testid="stHeader"] svg line,
+    [data-testid="stToolbar"] svg path,
+    [data-testid="stToolbar"] svg rect,
+    [data-testid="stToolbar"] svg circle,
+    [data-testid="stToolbar"] svg ellipse,
+    [data-testid="stToolbar"] svg polygon,
+    [data-testid="stToolbar"] svg polyline,
+    [data-testid="stToolbar"] svg line {
         fill: currentColor !important;
+        stroke: currentColor !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    [data-testid="stHeader"] svg [fill="none"],
+    [data-testid="stToolbar"] svg [fill="none"] {
+        fill: none !important;
+    }
+    [data-testid="stHeader"] svg [stroke="none"],
+    [data-testid="stToolbar"] svg [stroke="none"] {
+        stroke: none !important;
     }
     [data-testid="stToolbar"] button:hover,
     [data-testid="stHeader"] button:hover {
