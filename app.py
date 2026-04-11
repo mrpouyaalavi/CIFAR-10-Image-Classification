@@ -485,7 +485,14 @@ def _build_css(theme_mode: str) -> str:
        Responsive rules:
        • On wide viewports the pill row is centred.
        • On narrow viewports it becomes a single-row horizontal scroller so
-         labels are never truncated. */
+         labels are never truncated.
+
+       Streamlit 1.56 renders segmented_control buttons as
+       `<button><div class="…BaseButton…">label</div></button>`. In light
+       mode the INNER div carries the BaseWeb dark surface colour, so
+       clearing only `button`'s background left a black pill. We clear
+       every descendant's background here (::before / ::after included)
+       and repaint the active pill via :has() + attribute selectors. */
     div[data-testid="stSegmentedControl"] {
         display: flex;
         justify-content: center;
@@ -496,7 +503,7 @@ def _build_css(theme_mode: str) -> str:
         padding-bottom: 4px;
     }
     div[data-testid="stSegmentedControl"] > div {
-        background: var(--brand-bg-soft);
+        background: var(--brand-bg-soft) !important;
         border-radius: 12px;
         padding: 5px;
         border: 1px solid var(--border-soft);
@@ -504,9 +511,20 @@ def _build_css(theme_mode: str) -> str:
         flex-wrap: nowrap !important;
         min-width: min-content;
     }
-    div[data-testid="stSegmentedControl"] button {
+    /* Nuke every descendant's background — we keep the outer <button>/<label>
+       as the only paintable surface inside each pill. This is the only
+       selector specific enough to beat BaseWeb's inline / styled-components
+       rules across every Streamlit 1.5x patch version we've tested. */
+    div[data-testid="stSegmentedControl"] button,
+    div[data-testid="stSegmentedControl"] button *,
+    div[data-testid="stSegmentedControl"] label,
+    div[data-testid="stSegmentedControl"] label * {
         background: transparent !important;
+        background-color: transparent !important;
         border: none !important;
+        box-shadow: none !important;
+    }
+    div[data-testid="stSegmentedControl"] button {
         border-radius: 9px !important;
         color: var(--text-muted) !important;
         font-weight: 500 !important;
@@ -515,13 +533,40 @@ def _build_css(theme_mode: str) -> str:
         white-space: nowrap !important;
         transition: all 0.2s ease !important;
     }
-    div[data-testid="stSegmentedControl"] button:hover {
+    div[data-testid="stSegmentedControl"] button > div,
+    div[data-testid="stSegmentedControl"] label > div {
+        color: var(--text-muted) !important;
+    }
+    div[data-testid="stSegmentedControl"] button:hover,
+    div[data-testid="stSegmentedControl"] button:hover > div {
         color: var(--brand-text) !important;
+    }
+    div[data-testid="stSegmentedControl"] button:hover {
         background: var(--brand-bg-hover) !important;
     }
+    /* Selected pill — cover every attribute variant Streamlit has used.
+       We repaint the outer <button>/<label> (the only element we left
+       paintable above) and also pin the immediate flex wrapper child
+       so the highlight reads consistently on every 1.5x revision. */
     div[data-testid="stSegmentedControl"] button[aria-pressed="true"],
-    div[data-testid="stSegmentedControl"] button[data-selected="true"] {
+    div[data-testid="stSegmentedControl"] button[data-selected="true"],
+    div[data-testid="stSegmentedControl"] button[kind="segmented_controlActive"],
+    div[data-testid="stSegmentedControl"] button[kind="pillsActive"],
+    div[data-testid="stSegmentedControl"] label:has(input:checked),
+    div[data-testid="stSegmentedControl"] label:has(input:checked) button,
+    div[data-testid="stSegmentedControl"] button[aria-pressed="true"] > div,
+    div[data-testid="stSegmentedControl"] button[data-selected="true"] > div,
+    div[data-testid="stSegmentedControl"] label:has(input:checked) > div {
         background: var(--brand-bg-sel) !important;
+        background-color: var(--brand-bg-sel) !important;
+    }
+    div[data-testid="stSegmentedControl"] button[aria-pressed="true"],
+    div[data-testid="stSegmentedControl"] button[aria-pressed="true"] > div,
+    div[data-testid="stSegmentedControl"] button[data-selected="true"],
+    div[data-testid="stSegmentedControl"] button[data-selected="true"] > div,
+    div[data-testid="stSegmentedControl"] button[kind="segmented_controlActive"],
+    div[data-testid="stSegmentedControl"] button[kind="segmented_controlActive"] > div,
+    div[data-testid="stSegmentedControl"] label:has(input:checked) button > div {
         color: var(--brand-text) !important;
     }
 
@@ -565,6 +610,12 @@ def _build_css(theme_mode: str) -> str:
     [data-testid="stFileUploader"] small { color: var(--text-muted) !important; }
 
     /* ── Buttons ── */
+    /* Streamlit 1.56 wraps the label in a <div> under <button> that
+       carries a dark BaseWeb surface colour. Clearing only the outer
+       <button>'s background leaves a dark pill under the label in
+       light mode (visible on preset buttons, Load sample, Random
+       sample, etc.). We paint ONLY the outer <button>, and force
+       every descendant transparent so the paint shines through. */
     .stButton > button {
         background: var(--brand-bg-soft) !important;
         color: var(--brand-text) !important;
@@ -574,6 +625,11 @@ def _build_css(theme_mode: str) -> str:
         font-size: 0.85rem !important;
         letter-spacing: 0.02em;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    .stButton > button * {
+        background: transparent !important;
+        background-color: transparent !important;
+        color: inherit !important;
     }
     .stButton > button:hover {
         background: var(--brand-bg-hover) !important;
@@ -729,8 +785,21 @@ def _build_css(theme_mode: str) -> str:
        on every descendant repaints the icons to the theme's
        foreground colour in both modes. */
     [data-testid="stHeader"],
-    [data-testid="stToolbar"] {
+    [data-testid="stToolbar"],
+    [data-testid="stStatusWidget"],
+    [data-testid="stDecoration"] {
         background: transparent !important;
+        background-color: transparent !important;
+    }
+    /* Clear every descendant background inside the header bar so the
+       small "Share" / Deploy / menu chips don't render as black
+       rectangles on white in light mode. Hover states below repaint
+       deliberately. */
+    [data-testid="stHeader"] *,
+    [data-testid="stToolbar"] *,
+    [data-testid="stStatusWidget"] * {
+        background: transparent !important;
+        background-color: transparent !important;
     }
     [data-testid="stToolbar"] *,
     [data-testid="stHeader"] button,
@@ -744,6 +813,7 @@ def _build_css(theme_mode: str) -> str:
     [data-testid="stToolbar"] button:hover,
     [data-testid="stHeader"] button:hover {
         background: var(--brand-bg-soft) !important;
+        background-color: var(--brand-bg-soft) !important;
         color: var(--brand) !important;
     }
 
@@ -960,12 +1030,19 @@ def _build_css(theme_mode: str) -> str:
         color: var(--text-muted) !important;
     }
 
-    /* Inline <code> outside glass-card (e.g. runtime panel) */
-    code {
-        background: var(--brand-bg-soft);
-        color: var(--brand-text);
-        border-radius: 5px;
-        padding: 0.08rem 0.35rem;
+    /* Inline <code> outside glass-card (e.g. runtime panel and sidebar
+       chips for "Inference device" + "Best accuracy"). Streamlit's own
+       base stylesheet paints `code` with a dark surface which wins on
+       specificity unless we force !important here. */
+    code,
+    [data-testid="stMarkdownContainer"] code,
+    section[data-testid="stSidebar"] code {
+        background: var(--brand-bg-soft) !important;
+        background-color: var(--brand-bg-soft) !important;
+        color: var(--brand-text) !important;
+        border-radius: 5px !important;
+        padding: 0.08rem 0.35rem !important;
+        border: 1px solid var(--border-soft) !important;
     }
 
     /* Image container — st.image wraps the <img> in a div that
@@ -988,6 +1065,74 @@ def _build_css(theme_mode: str) -> str:
     }
     .stLinkButton > a:hover {
         background: var(--brand-bg-hover) !important;
+    }
+
+    /* ── Themed HTML tables ──
+       We render the Models and Analysis tables as raw HTML (instead of
+       st.dataframe) because Streamlit's DataFrame uses Glide Data Grid,
+       which rasterises cells to a <canvas>. You cannot theme canvas
+       pixels with CSS, so the Glide cells always rendered with a dark
+       background in light mode. HTML tables give us full CSS control
+       at the cost of losing Glide's interactive niceties (sort / resize),
+       which we don't need for fixed, small reference tables. */
+    .pa-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: var(--bg-raised);
+        border: 1px solid var(--border-soft);
+        border-radius: 12px;
+        overflow: hidden;
+        font-size: 0.88rem;
+        color: var(--text);
+    }
+    .pa-table thead th {
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.74rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        background: var(--brand-bg-soft);
+        padding: 0.7rem 0.9rem;
+        border-bottom: 1px solid var(--border-soft);
+        white-space: nowrap;
+    }
+    .pa-table tbody td {
+        padding: 0.65rem 0.9rem;
+        border-bottom: 1px solid var(--border-soft);
+        color: var(--text);
+        vertical-align: middle;
+    }
+    .pa-table tbody tr:last-child td { border-bottom: none; }
+    .pa-table tbody tr:hover td { background: var(--brand-bg-soft); }
+    .pa-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .pa-table td.center { text-align: center; }
+    .pa-progress {
+        position: relative;
+        height: 18px;
+        min-width: 120px;
+        background: var(--brand-bg-soft);
+        border: 1px solid var(--border-soft);
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .pa-progress > .fill {
+        position: absolute;
+        inset: 0 auto 0 0;
+        background: linear-gradient(90deg, var(--brand-strong), var(--brand));
+        border-radius: 6px 0 0 6px;
+    }
+    .pa-progress > .label {
+        position: relative;
+        z-index: 1;
+        display: block;
+        text-align: center;
+        font-size: 0.78rem;
+        font-weight: 600;
+        line-height: 18px;
+        color: var(--text);
+        mix-blend-mode: normal;
     }
 </style>
 """
@@ -1724,8 +1869,12 @@ def render_prediction(
             # heatmap reads correctly in both light and dark modes. The
             # heatmap itself is `jet` regardless — that's the scientific
             # convention and doesn't depend on page background.
-            _theme = st.session_state.get("theme", "auto")
-            _title_color = "#1e293b" if _theme == "light" else "#94a3b8"
+            # Use a neutral mid-gray that clears WCAG AA on both white
+            # and dark backgrounds. Previously we picked different
+            # colours per theme, but `theme == "auto"` fell through to
+            # the dark branch and rendered near-invisible on real
+            # light-mode pages. Slate-500 is the safe middle ground.
+            _title_color = "#64748b"
             fig, ax = plt.subplots(figsize=(3, 3))
             fig.patch.set_alpha(0.0)
             ax.set_facecolor("none")
@@ -1964,6 +2113,88 @@ def render_live_demo_tab(
 #  Tab 3 — Model Comparison
 # ============================================================================
 
+
+def _render_pa_table(
+    df: pd.DataFrame,
+    *,
+    progress_columns: dict[str, tuple[float, float, str]] | None = None,
+    numeric_columns: dict[str, str] | None = None,
+    center_columns: set[str] | None = None,
+) -> None:
+    """Render a pandas DataFrame as a themed HTML table.
+
+    We replaced ``st.dataframe`` with this helper because Streamlit's
+    DataFrame widget uses the Glide Data Grid, which rasterises every
+    cell to a ``<canvas>``. Canvas pixels are outside the CSS cascade,
+    so the cell backgrounds always rendered dark even when the rest of
+    the page was in light mode. An HTML table is fully CSS-themeable
+    and small reference tables don't need Glide's interactive features.
+
+    Parameters
+    ----------
+    df:
+        The DataFrame to render. Column order in ``df`` is preserved.
+    progress_columns:
+        Columns to render as inline progress bars, keyed by column name.
+        Each value is a tuple of ``(min_value, max_value, format_string)``
+        where ``format_string`` accepts a single ``{v}`` placeholder (e.g.
+        ``"{v:.2f}%"`` or ``"{v:d}%"``).
+    numeric_columns:
+        Columns to right-align with a specific format string. The key is
+        the column name and the value is a format string taking ``{v}``.
+    center_columns:
+        Columns to center-align.
+    """
+    progress_columns = progress_columns or {}
+    numeric_columns = numeric_columns or {}
+    center_columns = center_columns or set()
+
+    import html as _html_mod
+
+    head = "".join(f"<th>{_html_mod.escape(str(c))}</th>" for c in df.columns)
+    body_rows: list[str] = []
+    for _, row in df.iterrows():
+        cells: list[str] = []
+        for col in df.columns:
+            val = row[col]
+            if col in progress_columns:
+                lo, hi, fmt = progress_columns[col]
+                try:
+                    num = float(val)
+                except (TypeError, ValueError):
+                    num = 0.0
+                span = max(hi - lo, 1e-9)
+                pct = max(0.0, min(100.0, 100.0 * (num - lo) / span))
+                label = _html_mod.escape(fmt.format(v=num))
+                cells.append(
+                    '<td class="num">'
+                    '<div class="pa-progress">'
+                    f'<div class="fill" style="width:{pct:.2f}%;"></div>'
+                    f'<span class="label">{label}</span>'
+                    "</div></td>"
+                )
+            elif col in numeric_columns:
+                try:
+                    num = float(val)
+                    text = numeric_columns[col].format(v=num)
+                except (TypeError, ValueError):
+                    text = str(val)
+                cells.append(f'<td class="num">{_html_mod.escape(text)}</td>')
+            elif col in center_columns:
+                cells.append(f'<td class="center">{_html_mod.escape(str(val))}</td>')
+            else:
+                cells.append(f"<td>{_html_mod.escape(str(val))}</td>")
+        body_rows.append("<tr>" + "".join(cells) + "</tr>")
+
+    table_html = (
+        '<table class="pa-table">'
+        f"<thead><tr>{head}</tr></thead>"
+        f"<tbody>{''.join(body_rows)}</tbody>"
+        "</table>"
+    )
+    st.markdown(table_html, unsafe_allow_html=True)
+
+
 def render_models_tab() -> None:
     deployed_count = sum(1 for m in BENCHMARK_METRICS.values() if m["available"])
 
@@ -1993,20 +2224,17 @@ def render_models_tab() -> None:
             "Deployed": "✓" if m["available"] else "—",
         })
     df = pd.DataFrame(rows)
-    st.dataframe(
+    _render_pa_table(
         df,
-        width="stretch",
-        hide_index=True,
-        column_config={
-            "Test Acc (%)": st.column_config.ProgressColumn(
-                "Test Acc (%)",
-                min_value=0,
-                max_value=100,
-                format="%.2f%%",
-            ),
-            "Latency (ms)": st.column_config.NumberColumn(format="%.2f ms"),
-            "Size (MB)": st.column_config.NumberColumn(format="%.2f MB"),
+        progress_columns={
+            "Test Acc (%)": (0.0, 100.0, "{v:.2f}%"),
         },
+        numeric_columns={
+            "Latency (ms)": "{v:.2f} ms",
+            "Size (MB)": "{v:.2f} MB",
+            "Throughput (FPS)": "{v:.1f}",
+        },
+        center_columns={"Deployed", "Input"},
     )
 
     st.caption(
@@ -2063,7 +2291,7 @@ def _render_confusion_heatmap(
       guaranteed way to ship unreadable cells.
     """
     import matplotlib.pyplot as plt
-    import matplotlib.cm as mpl_cm
+    import matplotlib as mpl
 
     # Row-normalise to percentages. Zero-row guard in case a class is
     # somehow absent from the eval set (never happens on CIFAR-10 but the
@@ -2074,17 +2302,27 @@ def _render_confusion_heatmap(
         for row, t in zip(matrix, totals)
     ])
 
-    # Theme-aware label colour. We keep the figure background transparent
-    # so the surrounding card's colour shows through cleanly in both themes,
-    # and pick a single grey that clears WCAG AA on both backgrounds.
-    axis_color = "#1e293b" if theme_mode == "light" else "#cbd5e1"
-    grid_color = "#cbd5e1" if theme_mode == "light" else "#334155"
+    # Neutral mid-gray that clears WCAG AA on both white and dark
+    # backgrounds. Previously we branched on `theme_mode == "light"`,
+    # but the default `"auto"` fell through to the else branch and
+    # picked `#cbd5e1` (pale slate), which was effectively invisible
+    # on the real light-mode confusion-matrix card. Slate-500 is the
+    # safe middle ground for all three modes (light / dark / auto).
+    _ = theme_mode  # retained in signature for API compat, intentionally unused
+    axis_color = "#64748b"
+    # Matplotlib does NOT parse CSS rgba() strings. We pass a 4-tuple of
+    # floats in [0, 1] instead, which is the canonical matplotlib colour
+    # format for an RGBA value. (100/255, 116/255, 139/255, 0.35).
+    grid_color = (100 / 255, 116 / 255, 139 / 255, 0.35)
 
     fig, ax = plt.subplots(figsize=(5.2, 4.8))
     fig.patch.set_alpha(0.0)          # transparent — let the Streamlit card show
     ax.set_facecolor("none")
 
-    cmap = mpl_cm.get_cmap("Purples")
+    # ``matplotlib.cm.get_cmap`` was deprecated in 3.7 and slated for
+    # removal in 3.11. The replacement is the ``matplotlib.colormaps``
+    # registry, which returns the same Colormap object.
+    cmap = mpl.colormaps["Purples"]
     im = ax.imshow(norm, cmap=cmap, vmin=0, vmax=100, aspect="equal")
 
     ax.set_xticks(range(len(classes)))
@@ -2142,14 +2380,14 @@ def render_analysis_tab() -> None:
         for p in CONFUSION_PAIRS
     ]
     df = pd.DataFrame(rows)
-    st.dataframe(
+    _render_pa_table(
         df,
-        width="stretch",
-        hide_index=True,
-        column_config={
-            "Reduction (%)": st.column_config.ProgressColumn(
-                "Reduction (%)", min_value=0, max_value=100, format="%d%%",
-            ),
+        progress_columns={
+            "Reduction (%)": (0.0, 100.0, "{v:.0f}%"),
+        },
+        numeric_columns={
+            "Custom CNN (errors)": "{v:.0f}",
+            "MobileNetV2 (errors)": "{v:.0f}",
         },
     )
 
