@@ -17,9 +17,13 @@ License: MIT
 
 from __future__ import annotations
 
+import json
+import os
+
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 import torch
 import torchvision
 import torchvision.transforms as transforms
@@ -37,7 +41,8 @@ from model_utils import (
     CLASS_NAMES,
     compute_gradcam_overlay,
     describe_device,
-    load_models,
+    list_available_models,
+    load_model_by_name,
     predict,
     select_device,
 )
@@ -80,37 +85,156 @@ st.set_page_config(
 
 
 # ============================================================================
-#  Custom CSS — matches pouyaalavi.dev design system
+#  Theme system — system-aware light/dark with manual override
 # ============================================================================
+#
+# The app has three theme modes stored in st.session_state["theme"]:
+#
+#   "auto"  — use the OS preference via @media (prefers-color-scheme)
+#   "light" — force light theme regardless of OS
+#   "dark"  — force dark theme regardless of OS
+#
+# Persistence:
+#   1. Within a session → st.session_state["theme"]
+#   2. Across reloads / bookmarks → URL query param ?theme=light|dark|auto
+#
+# Why URL query params and not localStorage: Streamlit components run inside
+# sandboxed iframes that can't read the parent's localStorage without a
+# bidirectional bridge. Query params are a clean, built-in Streamlit API and
+# survive reloads, tab-restore, and shared URLs — which is all a recruiter
+# actually needs.
+#
+# Implementation:
+#   CSS uses `--bg`, `--text`, etc. Custom properties. We emit ONE of three
+#   stylesheet bodies depending on the mode:
+#     • auto   → :root has dark values, @media (prefers-color-scheme: light)
+#                flips them. No JS needed.
+#     • light  → forces the light values on :root, no media query.
+#     • dark   → forces dark values on :root, no media query.
+#   This keeps the parent DOM manipulation to zero and works reliably inside
+#   Streamlit's rendering model.
 
-CSS = """
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+_DARK_VARS = """
+    --bg:             #0a0a0f;
+    --bg-raised:      #12121a;
+    --sidebar-bg:     #0d0d14;
+    --card-bg:        linear-gradient(135deg, rgba(18,18,26,0.92), rgba(26,26,38,0.75));
+    --card-bg-solid:  #13131c;
+    --stat-bg:        linear-gradient(135deg, rgba(18,18,26,0.9), rgba(26,26,38,0.7));
+    --border:         rgba(255,255,255,0.08);
+    --border-soft:    rgba(255,255,255,0.06);
+    --border-brand:   rgba(124, 58, 237, 0.35);
+    --text:           #e8e8ed;
+    --text-muted:     #94a3b8;
+    --text-dim:       #64748b;
+    --brand:          #a78bfa;
+    --brand-strong:   #7c3aed;
+    --brand-accent:   #38bdf8;
+    --brand-text:     #c4b5fd;
+    --brand-bg-soft:  rgba(124, 58, 237, 0.12);
+    --brand-bg-hover: rgba(124, 58, 237, 0.22);
+    --brand-bg-sel:   rgba(124, 58, 237, 0.16);
+    --chip-blue-fg:   #7dd3fc;
+    --chip-blue-bg:   rgba(56, 189, 248, 0.1);
+    --chip-blue-bd:   rgba(56, 189, 248, 0.25);
+    --chip-green-fg:  #6ee7b7;
+    --chip-green-bg:  rgba(52, 211, 153, 0.1);
+    --chip-green-bd:  rgba(52, 211, 153, 0.25);
+    --success:        rgba(52, 211, 153, 0.4);
+    --success-glow:   rgba(52, 211, 153, 0.12);
+    --brand-glow:     rgba(124, 58, 237, 0.1);
+    --shadow-brand:   0 6px 24px rgba(124, 58, 237, 0.28);
+    --shadow-brand-h: 0 10px 32px rgba(124, 58, 237, 0.4);
+    --uploader-bg:    rgba(124, 58, 237, 0.03);
+    --uploader-bd:    rgba(124, 58, 237, 0.25);
+"""
+
+_LIGHT_VARS = """
+    --bg:             #f7f8fb;
+    --bg-raised:      #ffffff;
+    --sidebar-bg:     #ffffff;
+    --card-bg:        linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    --card-bg-solid:  #ffffff;
+    --stat-bg:        linear-gradient(135deg, #ffffff 0%, #f6f7fb 100%);
+    --border:         rgba(15, 23, 42, 0.10);
+    --border-soft:    rgba(15, 23, 42, 0.08);
+    --border-brand:   rgba(124, 58, 237, 0.42);
+    --text:           #0f172a;
+    --text-muted:     #475569;
+    --text-dim:       #94a3b8;
+    --brand:          #7c3aed;
+    --brand-strong:   #6d28d9;
+    --brand-accent:   #0284c7;
+    --brand-text:     #6d28d9;
+    --brand-bg-soft:  rgba(124, 58, 237, 0.08);
+    --brand-bg-hover: rgba(124, 58, 237, 0.14);
+    --brand-bg-sel:   rgba(124, 58, 237, 0.12);
+    --chip-blue-fg:   #0369a1;
+    --chip-blue-bg:   rgba(14, 165, 233, 0.10);
+    --chip-blue-bd:   rgba(14, 165, 233, 0.30);
+    --chip-green-fg:  #047857;
+    --chip-green-bg:  rgba(5, 150, 105, 0.10);
+    --chip-green-bd:  rgba(5, 150, 105, 0.30);
+    --success:        rgba(5, 150, 105, 0.45);
+    --success-glow:   rgba(5, 150, 105, 0.12);
+    --brand-glow:     rgba(124, 58, 237, 0.08);
+    --shadow-brand:   0 6px 24px rgba(124, 58, 237, 0.20);
+    --shadow-brand-h: 0 10px 32px rgba(124, 58, 237, 0.28);
+    --uploader-bg:    rgba(124, 58, 237, 0.04);
+    --uploader-bd:    rgba(124, 58, 237, 0.30);
+"""
+
+
+def _build_css(theme_mode: str) -> str:
+    """Compose the final stylesheet for the given mode (auto/light/dark)."""
+    if theme_mode == "light":
+        root_block = f":root {{\n{_LIGHT_VARS}\n}}"
+    elif theme_mode == "dark":
+        root_block = f":root {{\n{_DARK_VARS}\n}}"
+    else:  # "auto"
+        root_block = (
+            f":root {{\n{_DARK_VARS}\n}}\n"
+            "@media (prefers-color-scheme: light) {\n"
+            f"  :root {{\n{_LIGHT_VARS}\n  }}\n"
+            "}"
+        )
+
+    return (
+        "<style>\n"
+        "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');\n"
+        + root_block
+        + """
 
     html, body, [class*="stApp"] {
         font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+        background: var(--bg) !important;
+        color: var(--text) !important;
     }
+    .stApp { background: var(--bg) !important; }
+    [data-testid="stHeader"] { background: transparent !important; }
+
+    /* Generous top padding so the sticky Streamlit header never clips our
+       top-level navigation on first paint. 3.5rem gives enough safe area
+       on every viewport we've tested (desktop, tablet, narrow laptop). */
     .block-container {
-        padding-top: 2rem !important;
+        padding-top: 3.5rem !important;
         padding-bottom: 2rem !important;
         max-width: 1180px !important;
     }
 
     /* ── Hero / header ── */
-    .hero {
-        text-align: center;
-        padding: 2rem 0 1rem 0;
-    }
+    .hero { text-align: center; padding: 1.2rem 0 1rem 0; }
     .hero .tag {
         display: inline-block;
         font-size: 0.72rem;
         font-weight: 600;
         letter-spacing: 0.14em;
         text-transform: uppercase;
-        color: #a78bfa;
-        background: rgba(124, 58, 237, 0.12);
+        color: var(--brand);
+        background: var(--brand-bg-soft);
         padding: 0.35rem 0.9rem;
-        border: 1px solid rgba(124, 58, 237, 0.3);
+        border: 1px solid var(--border-brand);
         border-radius: 999px;
         margin-bottom: 1rem;
     }
@@ -119,46 +243,19 @@ CSS = """
         font-weight: 800;
         letter-spacing: -0.025em;
         line-height: 1.1;
-        background: linear-gradient(135deg, #7c3aed 0%, #38bdf8 50%, #a78bfa 100%);
+        background: linear-gradient(135deg, var(--brand-strong) 0%, var(--brand-accent) 50%, var(--brand) 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
         margin: 0 0 0.8rem 0;
     }
     .hero p.sub {
-        color: #94a3b8;
+        color: var(--text-muted);
         font-size: 1.08rem;
         font-weight: 400;
         line-height: 1.6;
         max-width: 720px;
         margin: 0 auto 1.2rem auto;
-    }
-    .hero .cta-row a {
-        display: inline-block;
-        margin: 0 0.3rem;
-        padding: 0.55rem 1.1rem;
-        font-size: 0.85rem;
-        font-weight: 600;
-        border-radius: 10px;
-        text-decoration: none;
-        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .cta-primary {
-        background: linear-gradient(135deg, #7c3aed, #a78bfa);
-        color: #ffffff !important;
-        box-shadow: 0 6px 24px rgba(124, 58, 237, 0.28);
-    }
-    .cta-primary:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 10px 32px rgba(124, 58, 237, 0.4);
-    }
-    .cta-ghost {
-        color: #a78bfa !important;
-        background: rgba(124, 58, 237, 0.08);
-        border: 1px solid rgba(124, 58, 237, 0.3);
-    }
-    .cta-ghost:hover {
-        background: rgba(124, 58, 237, 0.18);
     }
 
     /* ── Hero stats grid ── */
@@ -173,26 +270,26 @@ CSS = """
         .hero-stats { grid-template-columns: repeat(2, 1fr); }
     }
     .stat-card {
-        background: linear-gradient(135deg, rgba(18,18,26,0.9), rgba(26,26,38,0.7));
-        border: 1px solid rgba(255,255,255,0.08);
+        background: var(--stat-bg);
+        border: 1px solid var(--border);
         border-radius: 12px;
         padding: 1rem 0.8rem;
         text-align: center;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .stat-card:hover {
-        border-color: rgba(124, 58, 237, 0.35);
+        border-color: var(--border-brand);
         transform: translateY(-2px);
     }
     .stat-card .val {
         font-size: 1.55rem;
         font-weight: 700;
-        color: #e8e8ed;
+        color: var(--text);
         letter-spacing: -0.02em;
         line-height: 1.1;
     }
     .stat-card .val.gradient {
-        background: linear-gradient(135deg, #a78bfa, #38bdf8);
+        background: linear-gradient(135deg, var(--brand), var(--brand-accent));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -200,7 +297,7 @@ CSS = """
     .stat-card .lab {
         font-size: 0.72rem;
         font-weight: 500;
-        color: #94a3b8;
+        color: var(--text-muted);
         letter-spacing: 0.05em;
         text-transform: uppercase;
         margin-top: 0.3rem;
@@ -208,8 +305,8 @@ CSS = """
 
     /* ── Glass cards ── */
     .glass-card {
-        background: linear-gradient(135deg, rgba(18,18,26,0.92), rgba(26,26,38,0.75));
-        border: 1px solid rgba(255,255,255,0.08);
+        background: var(--card-bg);
+        border: 1px solid var(--border);
         border-radius: 14px;
         padding: 1.5rem;
         margin-bottom: 1rem;
@@ -217,36 +314,43 @@ CSS = """
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .glass-card:hover {
-        border-color: rgba(124, 58, 237, 0.3);
-        box-shadow: 0 8px 32px rgba(124, 58, 237, 0.08);
+        border-color: var(--border-brand);
+        box-shadow: 0 8px 32px var(--brand-glow);
     }
     .glass-card h3 {
         font-size: 1.05rem;
         font-weight: 600;
-        color: #e8e8ed;
+        color: var(--text);
         margin: 0 0 0.6rem 0;
         letter-spacing: -0.01em;
     }
-    .glass-card p {
-        color: #94a3b8;
+    .glass-card p, .glass-card li {
+        color: var(--text-muted);
         font-size: 0.92rem;
         line-height: 1.55;
         margin: 0;
     }
+    .glass-card code {
+        background: var(--brand-bg-soft);
+        color: var(--brand-text);
+        padding: 0.08rem 0.35rem;
+        border-radius: 5px;
+        font-size: 0.85em;
+    }
 
     /* ── Prediction result card ── */
     .pred-result {
-        background: linear-gradient(135deg, rgba(18,18,26,0.92), rgba(26,26,38,0.75));
-        border: 1px solid rgba(124, 58, 237, 0.35);
+        background: var(--card-bg);
+        border: 1px solid var(--border-brand);
         border-radius: 14px;
         padding: 1.6rem;
         text-align: center;
         margin-bottom: 1rem;
-        box-shadow: 0 0 24px rgba(124, 58, 237, 0.1);
+        box-shadow: 0 0 24px var(--brand-glow);
     }
     .pred-result.correct {
-        border-color: rgba(52, 211, 153, 0.4);
-        box-shadow: 0 0 24px rgba(52, 211, 153, 0.12);
+        border-color: var(--success);
+        box-shadow: 0 0 24px var(--success-glow);
     }
     .pred-result .model-badge {
         display: inline-block;
@@ -257,116 +361,123 @@ CSS = """
         letter-spacing: 0.05em;
         text-transform: uppercase;
         margin-bottom: 0.7rem;
-    }
-    .badge-cnn {
-        background: rgba(124, 58, 237, 0.15);
-        color: #a78bfa;
-        border: 1px solid rgba(124, 58, 237, 0.3);
+        background: var(--brand-bg-soft);
+        color: var(--brand);
+        border: 1px solid var(--border-brand);
     }
     .badge-mn {
-        background: rgba(56, 189, 248, 0.15);
-        color: #38bdf8;
-        border: 1px solid rgba(56, 189, 248, 0.3);
+        background: var(--chip-blue-bg);
+        color: var(--chip-blue-fg);
+        border: 1px solid var(--chip-blue-bd);
     }
     .pred-result .pred-class {
         font-size: 1.95rem;
         font-weight: 700;
-        color: #e8e8ed;
+        color: var(--text);
         letter-spacing: -0.015em;
         margin: 0.3rem 0 0.1rem 0;
     }
     .pred-result .pred-conf {
         font-size: 0.95rem;
-        color: #94a3b8;
+        color: var(--text-muted);
     }
 
     /* ── Progress bars ── */
     .stProgress > div > div {
-        background-color: rgba(124, 58, 237, 0.12) !important;
+        background-color: var(--brand-bg-soft) !important;
         border-radius: 8px !important;
     }
     .stProgress > div > div > div {
-        background: linear-gradient(90deg, #7c3aed, #a78bfa) !important;
+        background: linear-gradient(90deg, var(--brand-strong), var(--brand)) !important;
         border-radius: 8px !important;
     }
 
     /* ── Sidebar ── */
     section[data-testid="stSidebar"] {
-        background: #0d0d14 !important;
-        border-right: 1px solid rgba(255,255,255,0.06) !important;
+        background: var(--sidebar-bg) !important;
+        border-right: 1px solid var(--border-soft) !important;
     }
-    section[data-testid="stSidebar"] .stMarkdown h2 {
+    section[data-testid="stSidebar"] * { color: var(--text); }
+    section[data-testid="stSidebar"] .stMarkdown h2,
+    section[data-testid="stSidebar"] .stMarkdown h3 {
         font-size: 1rem;
         font-weight: 600;
-        color: #e8e8ed;
+        color: var(--text);
         letter-spacing: -0.01em;
     }
+    section[data-testid="stSidebar"] a { color: var(--brand) !important; }
 
-    /* ── Top-level tabs ── */
+    /* ── Secondary (nested) tabs — e.g. Upload / CIFAR sample ── */
     .stTabs [data-baseweb="tab-list"] {
         gap: 0;
-        background: rgba(255,255,255,0.03);
+        background: var(--brand-bg-soft);
         border-radius: 12px;
         padding: 5px;
-        border: 1px solid rgba(255,255,255,0.06);
+        border: 1px solid var(--border-soft);
         overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
     }
     .stTabs [data-baseweb="tab"] {
         border-radius: 9px;
-        color: #94a3b8;
+        color: var(--text-muted);
         font-weight: 500;
         font-size: 0.88rem;
         padding: 0.55rem 1.2rem;
         white-space: nowrap;
     }
     .stTabs [aria-selected="true"] {
-        background: rgba(124, 58, 237, 0.16) !important;
-        color: #c4b5fd !important;
+        background: var(--brand-bg-sel) !important;
+        color: var(--brand-text) !important;
     }
     .stTabs [data-baseweb="tab-highlight"] { background-color: transparent !important; }
     .stTabs [data-baseweb="tab-border"] { display: none; }
 
     /* ── Top-level navigation (st.segmented_control) ──
-       We use segmented_control instead of st.tabs so the hero CTA button can
-       programmatically switch "tabs" via st.session_state. We re-skin it here
-       so it looks identical to the previous tab bar. */
+       Responsive rules:
+       • On wide viewports the pill row is centred.
+       • On narrow viewports it becomes a single-row horizontal scroller so
+         labels are never truncated. */
     div[data-testid="stSegmentedControl"] {
         display: flex;
         justify-content: center;
-        margin-bottom: 0.4rem;
+        margin: 0.3rem 0 1rem 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        padding-bottom: 4px;
     }
     div[data-testid="stSegmentedControl"] > div {
-        background: rgba(255,255,255,0.03);
+        background: var(--brand-bg-soft);
         border-radius: 12px;
         padding: 5px;
-        border: 1px solid rgba(255,255,255,0.06);
+        border: 1px solid var(--border-soft);
         gap: 0;
+        flex-wrap: nowrap !important;
+        min-width: min-content;
     }
     div[data-testid="stSegmentedControl"] button {
         background: transparent !important;
         border: none !important;
         border-radius: 9px !important;
-        color: #94a3b8 !important;
+        color: var(--text-muted) !important;
         font-weight: 500 !important;
         font-size: 0.88rem !important;
-        padding: 0.55rem 1.2rem !important;
+        padding: 0.55rem 1.1rem !important;
         white-space: nowrap !important;
         transition: all 0.2s ease !important;
     }
     div[data-testid="stSegmentedControl"] button:hover {
-        color: #c4b5fd !important;
-        background: rgba(124, 58, 237, 0.08) !important;
+        color: var(--brand-text) !important;
+        background: var(--brand-bg-hover) !important;
     }
     div[data-testid="stSegmentedControl"] button[aria-pressed="true"],
     div[data-testid="stSegmentedControl"] button[data-selected="true"] {
-        background: rgba(124, 58, 237, 0.16) !important;
-        color: #c4b5fd !important;
+        background: var(--brand-bg-sel) !important;
+        color: var(--brand-text) !important;
     }
 
-    /* ── Hero CTA row (native st.button + st.link_button) ──
-       Previously anchor tags; now real widgets so on_click can update
-       st.session_state.nav. The .hero-cta wrapper scopes these overrides so
-       we don't affect every other button on the page. */
+    /* ── Hero CTA row (native st.button + st.link_button) ── */
     .hero-cta-row { margin: 0.2rem 0 0.5rem 0; }
     .hero-cta-row .stButton > button,
     .hero-cta-row .stLinkButton > a {
@@ -378,37 +489,38 @@ CSS = """
         width: 100% !important;
     }
     .hero-cta-row .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #7c3aed, #a78bfa) !important;
+        background: linear-gradient(135deg, var(--brand-strong), var(--brand)) !important;
         color: #ffffff !important;
         border: none !important;
-        box-shadow: 0 6px 24px rgba(124, 58, 237, 0.28) !important;
+        box-shadow: var(--shadow-brand) !important;
     }
     .hero-cta-row .stButton > button[kind="primary"]:hover {
         transform: translateY(-1px);
-        box-shadow: 0 10px 32px rgba(124, 58, 237, 0.4) !important;
+        box-shadow: var(--shadow-brand-h) !important;
     }
     .hero-cta-row .stLinkButton > a {
-        color: #a78bfa !important;
-        background: rgba(124, 58, 237, 0.08) !important;
-        border: 1px solid rgba(124, 58, 237, 0.3) !important;
+        color: var(--brand) !important;
+        background: var(--brand-bg-soft) !important;
+        border: 1px solid var(--border-brand) !important;
         text-decoration: none !important;
     }
     .hero-cta-row .stLinkButton > a:hover {
-        background: rgba(124, 58, 237, 0.18) !important;
+        background: var(--brand-bg-hover) !important;
     }
 
     /* ── File uploader ── */
     [data-testid="stFileUploader"] {
-        border: 2px dashed rgba(124, 58, 237, 0.25) !important;
+        border: 2px dashed var(--uploader-bd) !important;
         border-radius: 12px !important;
-        background: rgba(124, 58, 237, 0.03) !important;
+        background: var(--uploader-bg) !important;
     }
+    [data-testid="stFileUploader"] small { color: var(--text-muted) !important; }
 
     /* ── Buttons ── */
     .stButton > button {
-        background: rgba(124, 58, 237, 0.12) !important;
-        color: #c4b5fd !important;
-        border: 1px solid rgba(124, 58, 237, 0.3) !important;
+        background: var(--brand-bg-soft) !important;
+        color: var(--brand-text) !important;
+        border: 1px solid var(--border-brand) !important;
         border-radius: 10px !important;
         font-weight: 600 !important;
         font-size: 0.85rem !important;
@@ -416,9 +528,9 @@ CSS = """
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
     .stButton > button:hover {
-        background: rgba(124, 58, 237, 0.22) !important;
-        border-color: rgba(124, 58, 237, 0.5) !important;
-        box-shadow: 0 0 20px rgba(124, 58, 237, 0.15) !important;
+        background: var(--brand-bg-hover) !important;
+        border-color: var(--brand) !important;
+        box-shadow: 0 0 20px var(--brand-glow) !important;
         transform: translateY(-1px);
     }
 
@@ -426,11 +538,11 @@ CSS = """
     [data-testid="stDataFrame"] {
         border-radius: 12px;
         overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.06);
+        border: 1px solid var(--border-soft);
     }
 
     /* ── Dividers ── */
-    hr { border-color: rgba(255,255,255,0.06) !important; }
+    hr { border-color: var(--border-soft) !important; }
 
     /* ── Section labels ── */
     .section-label {
@@ -438,40 +550,91 @@ CSS = """
         font-weight: 600;
         letter-spacing: 0.1em;
         text-transform: uppercase;
-        color: #94a3b8;
+        color: var(--text-muted);
         margin: 0.5rem 0 0.6rem 0;
     }
     .section-title {
         font-size: 1.5rem;
         font-weight: 700;
-        color: #e8e8ed;
+        color: var(--text);
         letter-spacing: -0.02em;
         margin: 0.8rem 0 0.4rem 0;
     }
     .section-sub {
-        color: #94a3b8;
+        color: var(--text-muted);
         font-size: 0.95rem;
         margin: 0 0 1rem 0;
         line-height: 1.55;
+    }
+
+    /* ── Preset gallery (Live Demo) ── */
+    .preset-label {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin: 1rem 0 0.5rem 0;
+    }
+
+    /* ── Model-card (Analysis tab) ── */
+    .model-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--brand);
+        border-radius: 10px;
+        padding: 1.3rem 1.5rem;
+        margin-top: 1rem;
+    }
+    .model-card h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text);
+        margin: 0 0 0.4rem 0;
+    }
+    .model-card dl { margin: 0.4rem 0 0 0; }
+    .model-card dt {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-top: 0.7rem;
+    }
+    .model-card dd {
+        margin: 0.15rem 0 0 0;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+
+    /* ── Cold-start banner ── */
+    .cold-start-note {
+        display: block;
+        text-align: center;
+        font-size: 0.78rem;
+        color: var(--text-dim);
+        margin: 0.4rem auto 0 auto;
+        max-width: 620px;
     }
 
     /* ── Footer ── */
     .footer-links {
         text-align: center;
         padding: 2rem 0 1rem 0;
-        border-top: 1px solid rgba(255,255,255,0.06);
+        border-top: 1px solid var(--border-soft);
         margin-top: 2.5rem;
     }
     .footer-links a {
-        color: #94a3b8;
+        color: var(--text-muted);
         text-decoration: none;
         font-size: 0.85rem;
         margin: 0 0.9rem;
         transition: color 0.2s;
     }
-    .footer-links a:hover { color: #a78bfa; }
+    .footer-links a:hover { color: var(--brand); }
     .footer-note {
-        color: #64748b;
+        color: var(--text-dim);
         font-size: 0.75rem;
         margin-top: 0.4rem;
     }
@@ -482,25 +645,50 @@ CSS = """
         padding: 0.3rem 0.7rem;
         font-size: 0.75rem;
         font-weight: 500;
-        color: #c4b5fd;
-        background: rgba(124, 58, 237, 0.1);
-        border: 1px solid rgba(124, 58, 237, 0.25);
+        color: var(--brand-text);
+        background: var(--brand-bg-soft);
+        border: 1px solid var(--border-brand);
         border-radius: 999px;
         margin: 0.2rem 0.3rem 0.2rem 0;
     }
     .chip.blue {
-        color: #7dd3fc;
-        background: rgba(56, 189, 248, 0.1);
-        border-color: rgba(56, 189, 248, 0.25);
+        color: var(--chip-blue-fg);
+        background: var(--chip-blue-bg);
+        border-color: var(--chip-blue-bd);
     }
     .chip.green {
-        color: #6ee7b7;
-        background: rgba(52, 211, 153, 0.1);
-        border-color: rgba(52, 211, 153, 0.25);
+        color: var(--chip-green-fg);
+        background: var(--chip-green-bg);
+        border-color: var(--chip-green-bd);
     }
 </style>
 """
-st.markdown(CSS, unsafe_allow_html=True)
+    )
+
+
+def _resolve_theme_mode() -> str:
+    """Read theme mode from query params (persistent) → session_state → default.
+
+    Normalizes to one of: "auto", "light", "dark".
+    """
+    valid = {"auto", "light", "dark"}
+
+    # URL query param wins on first load so the choice survives browser reloads
+    # and bookmarks. We intentionally use the new-style st.query_params API;
+    # this requires Streamlit >= 1.30 which our requirements.txt pins.
+    url_theme = st.query_params.get("theme")
+    if url_theme in valid and "theme" not in st.session_state:
+        st.session_state["theme"] = url_theme
+
+    st.session_state.setdefault("theme", "auto")
+    if st.session_state["theme"] not in valid:
+        st.session_state["theme"] = "auto"
+    return st.session_state["theme"]
+
+
+# Apply the initial theme CSS before any widgets render so there's no flash.
+_current_theme = _resolve_theme_mode()
+st.markdown(_build_css(_current_theme), unsafe_allow_html=True)
 
 
 # ============================================================================
@@ -522,26 +710,152 @@ def _load_cifar10_test():
 
 
 # ============================================================================
-#  Sidebar — global controls
+#  Sidebar — conditional rendering
 # ============================================================================
+#
+# Information architecture note: the sidebar previously rendered its model
+# controls on every tab, even though the help-text explicitly said "these
+# apply to the Live Demo tab". That inconsistency was confusing, so now:
+#
+#   • On Live Demo    → full controls (model, top-k, Grad-CAM, compare mode)
+#   • On every other  → lightweight info panel (runtime, deploy scope, links)
+#
+# Both modes still show the theme toggle + external links so the user can
+# change appearance and navigate out from any tab.
 
-def render_sidebar(loaded_models: dict, device: torch.device) -> dict:
-    st.sidebar.markdown("## Controls")
-    st.sidebar.caption("These apply to the **Live Demo** tab.")
+
+_TOTAL_TRAINED = len(BENCHMARK_METRICS)
+
+
+def _render_theme_toggle() -> None:
+    """Render the system-aware theme toggle. Persists via URL query param."""
+    st.sidebar.markdown("### Appearance")
+    st.sidebar.caption("Dark / Light / Auto (matches your OS).")
+
+    options = ["Auto", "Light", "Dark"]
+    current = st.session_state.get("theme", "auto")
+    current_label = current.capitalize()
+    try:
+        default_idx = options.index(current_label)
+    except ValueError:
+        default_idx = 0
+
+    choice = st.sidebar.radio(
+        "Theme",
+        options,
+        index=default_idx,
+        horizontal=True,
+        label_visibility="collapsed",
+        key="theme_radio",
+    )
+    new_mode = choice.lower()
+    if new_mode != current:
+        st.session_state["theme"] = new_mode
+        st.query_params["theme"] = new_mode
+        st.rerun()
+
+
+def _render_runtime_panel(loaded_models: dict, device: torch.device) -> None:
+    """Shared runtime/status block used by both sidebar modes."""
+    loaded_names = list(loaded_models.keys())
+
+    # describe_device() returns a human-readable string like
+    # "MPS — Apple Silicon (arm64)" or "CUDA — NVIDIA A100 (40.0 GB)". The
+    # deployed Streamlit Community Cloud instance is always CPU, but the
+    # *code* still prefers CUDA → MPS → CPU locally, so we surface both
+    # facts clearly instead of letting a recruiter assume CPU means the
+    # whole project is CPU-only.
+    try:
+        device_label = describe_device(device)
+    except Exception:
+        device_label = str(device)
+
+    st.sidebar.markdown("### Runtime")
+    st.sidebar.markdown(f"**Inference device**  `{device_label}`")
+    st.sidebar.caption(
+        "Live demo runs inference only. Training was performed offline with "
+        "CUDA / Apple MPS acceleration where available; the deployed instance "
+        "uses CPU because the host is a shared free-tier container."
+    )
+
+    deployed = sum(1 for m in BENCHMARK_METRICS.values() if m["available"])
+    st.sidebar.markdown(
+        f"**Models loaded**  {len(loaded_names)} / {deployed} deployed"
+    )
+    st.sidebar.markdown(
+        f"**Trained architectures**  {_TOTAL_TRAINED} "
+        f"<span style='color:var(--text-dim);font-size:0.78rem;'>(benchmarked)</span>",
+        unsafe_allow_html=True,
+    )
+    st.sidebar.markdown(
+        f"**Best accuracy**  "
+        f"`{BENCHMARK_METRICS[best_model_key()]['test_accuracy']:.2f}% "
+        f"({BENCHMARK_METRICS[best_model_key()]['display_name']})`"
+    )
+
+
+def _render_sidebar_links() -> None:
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(
+        "[Portfolio](https://www.pouyaalavi.dev) · "
+        "[GitHub](https://github.com/mrpouyaalavi/CIFAR-10-Image-Classification) · "
+        "[LinkedIn](https://www.linkedin.com/in/pouya-alavi)"
+    )
+
+
+def _recommended_model(loaded_names: list[str]) -> str:
+    """Return the model we want selected by default in the live demo.
+
+    Preference order:
+      1. Best-accuracy deployed model (e.g. MobileNetV2)
+      2. Any other loaded model (falls back cleanly if only one is present)
+
+    First impressions matter: a recruiter landing on Live Demo should see the
+    strongest result, not the 48%-accuracy "from scratch" baseline.
+    """
+    best = best_model_key()
+    if best in loaded_names:
+        return best
+    return loaded_names[0]
+
+
+def render_live_demo_sidebar(loaded_models: dict, device: torch.device) -> dict:
+    """Full control set. Only shown when the Live Demo tab is active."""
+    st.sidebar.markdown("## Live demo controls")
+    st.sidebar.caption("Configure the model and visualisation used on this tab.")
 
     loaded_names = list(loaded_models.keys())
 
     if loaded_names:
+        default = _recommended_model(loaded_names)
+        # Annotate the options so the recommended model is visually obvious
+        # in the dropdown itself. We keep the raw key as the return value and
+        # only rewrite the label via format_func.
+        def _label(name: str) -> str:
+            if name == default:
+                return f"{name} · recommended"
+            return name
+
         selected_model = st.sidebar.selectbox(
             "Model",
             loaded_names,
-            help="Choose which model to run inference with on the Live Demo tab.",
+            index=loaded_names.index(default),
+            format_func=_label,
+            help=(
+                "Choose the model to run inference with. "
+                f"{default} is the highest-accuracy deployed model "
+                f"({BENCHMARK_METRICS[default]['test_accuracy']:.1f}% on the "
+                "10 000-image CIFAR-10 test set)."
+            ),
         )
-        top_k = st.sidebar.slider("Top-K predictions", 1, 10, 5)
+        top_k = st.sidebar.slider(
+            "Top-K predictions", 1, 10, 5,
+            help="How many class probabilities to display below the top prediction.",
+        )
         show_gradcam = st.sidebar.checkbox(
             "Show Grad-CAM",
             value=True,
-            help="Overlay a heatmap showing which image regions influenced the prediction.",
+            help="Overlay a heatmap showing which image regions drove the prediction.",
         )
         gradcam_alpha = 0.5
         if show_gradcam:
@@ -551,9 +865,9 @@ def render_sidebar(loaded_models: dict, device: torch.device) -> dict:
         compare_mode = False
         if len(loaded_names) > 1:
             compare_mode = st.sidebar.checkbox(
-                "Compare both models",
+                "Compare deployed models",
                 value=False,
-                help="Run inference with both models side-by-side.",
+                help="Run every loaded model on the same image, side-by-side.",
             )
     else:
         selected_model = None
@@ -563,26 +877,10 @@ def render_sidebar(loaded_models: dict, device: torch.device) -> dict:
         compare_mode = False
 
     st.sidebar.markdown("---")
-    st.sidebar.markdown("### Runtime")
-    # describe_device() returns a human-readable string like
-    # "MPS — Apple Silicon (arm64)" or "CUDA — NVIDIA A100 (40.0 GB)" so the
-    # user can see at a glance which accelerator is active. Falling back to
-    # the bare device.type if describe_device raises (extremely defensive —
-    # describe_device only uses stdlib modules — but worth it for a live demo).
-    try:
-        device_label = describe_device(device)
-    except Exception:
-        device_label = str(device)
-    st.sidebar.markdown(f"**Device**  `{device_label}`")
-    st.sidebar.markdown(f"**Loaded**  {len(loaded_names)} / 2 models")
-    st.sidebar.markdown(f"**Best accuracy**  `{BENCHMARK_METRICS[best_model_key()]['test_accuracy']:.2f}%`")
-
+    _render_runtime_panel(loaded_models, device)
     st.sidebar.markdown("---")
-    st.sidebar.markdown(
-        "[Portfolio](https://www.pouyaalavi.dev) · "
-        "[GitHub](https://github.com/mrpouyaalavi/CIFAR-10-Image-Classification) · "
-        "[LinkedIn](https://www.linkedin.com/in/pouya-alavi)"
-    )
+    _render_theme_toggle()
+    _render_sidebar_links()
 
     return {
         "selected_model": selected_model,
@@ -590,6 +888,46 @@ def render_sidebar(loaded_models: dict, device: torch.device) -> dict:
         "show_gradcam": show_gradcam,
         "gradcam_alpha": gradcam_alpha,
         "compare_mode": compare_mode,
+    }
+
+
+def render_info_sidebar(loaded_models: dict, device: torch.device) -> dict:
+    """Lightweight sidebar rendered on every non-Live-Demo tab.
+
+    We intentionally do NOT show model selection, top-k, Grad-CAM or compare
+    toggles here — they would be dead controls on the Overview / Models /
+    Analysis / About tabs. Instead we surface runtime info, a short project
+    summary, and a hint on where the controls actually live.
+    """
+    st.sidebar.markdown("## Project")
+    st.sidebar.markdown(
+        '<p style="color:var(--text-muted); font-size:0.88rem; line-height:1.55; margin:0.2rem 0 0.8rem 0;">'
+        "A five-architecture CIFAR-10 benchmark with Grad-CAM interpretability, "
+        "reproducible from a single seed."
+        "</p>",
+        unsafe_allow_html=True,
+    )
+    st.sidebar.info(
+        "Model controls live on the **Live Demo** tab.",
+        icon="🔬",
+    )
+
+    st.sidebar.markdown("---")
+    _render_runtime_panel(loaded_models, device)
+    st.sidebar.markdown("---")
+    _render_theme_toggle()
+    _render_sidebar_links()
+
+    # Return default settings; these are only consumed by the Live Demo tab
+    # anyway, so values here are effectively unused on other tabs.
+    loaded_names = list(loaded_models.keys())
+    default_model = _recommended_model(loaded_names) if loaded_names else None
+    return {
+        "selected_model": default_model,
+        "top_k": 5,
+        "show_gradcam": True,
+        "gradcam_alpha": 0.5,
+        "compare_mode": False,
     }
 
 
@@ -612,6 +950,7 @@ def _go_to_demo() -> None:
 def render_overview_tab() -> None:
     best_key = best_model_key()
     best = BENCHMARK_METRICS[best_key]
+    deployed_count = sum(1 for m in BENCHMARK_METRICS.values() if m["available"])
 
     # Hero block — part 1: tag, headline, subhead. We close the <div class="hero">
     # wrapper at the end of part 3 so the three markdown blocks render as a
@@ -622,12 +961,13 @@ def render_overview_tab() -> None:
             <span class="tag">Deep-Learning Portfolio Project</span>
             <h1>CIFAR-10 Image Classification</h1>
             <p class="sub">
-                A complete deep-learning pipeline comparing five architectures on the
-                CIFAR-10 dataset. Built with PyTorch and Streamlit, featuring
-                <b>{best['test_accuracy']:.2f}% test accuracy</b> from
-                {best['display_name']} using transfer learning from a frozen
-                ImageNet backbone, plus Grad-CAM interpretability and auto
-                CUDA / MPS / CPU inference.
+                An end-to-end deep-learning study comparing {_TOTAL_TRAINED} architectures
+                on CIFAR-10 — from a 4-block CNN trained from scratch to a frozen
+                ImageNet backbone. Built with PyTorch and Streamlit, topping out at
+                <b>{best['test_accuracy']:.2f}% test accuracy</b> via
+                {best['display_name']} transfer learning, with Grad-CAM
+                interpretability and a clean inference pipeline that runs on CUDA,
+                Apple MPS, or CPU.
             </p>
         </div>
         ''',
@@ -657,7 +997,20 @@ def render_overview_tab() -> None:
         )
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Hero block — part 3: stats grid.
+    # Cold-start note — the deployed Streamlit Community Cloud container
+    # sleeps after a few days of inactivity; we surface that honestly rather
+    # than having the recruiter wonder why the first load is slow.
+    st.markdown(
+        '<p class="cold-start-note">'
+        "Note: the demo may take a few seconds to wake on first load while the "
+        "hosting container spins up. Subsequent interactions are fast."
+        "</p>",
+        unsafe_allow_html=True,
+    )
+
+    # Hero block — part 3: stats grid. Note the "5 trained · 2 deployed"
+    # split — it's the single clearest signal to a recruiter that the study
+    # is broader than the two checkpoints actually shipped in the demo.
     st.markdown(
         f'''
         <div class="hero" style="padding-top:0.8rem;">
@@ -667,8 +1020,8 @@ def render_overview_tab() -> None:
                     <div class="lab">Best Test Accuracy</div>
                 </div>
                 <div class="stat-card">
-                    <div class="val">5</div>
-                    <div class="lab">Architectures Trained</div>
+                    <div class="val">{_TOTAL_TRAINED} <span style="font-size:1rem;color:var(--text-muted);">/ {deployed_count}</span></div>
+                    <div class="lab">Trained · Deployed</div>
                 </div>
                 <div class="stat-card">
                     <div class="val">60K</div>
@@ -684,7 +1037,65 @@ def render_overview_tab() -> None:
         unsafe_allow_html=True,
     )
 
-    st.markdown('<div class="section-title">What this project demonstrates</div>', unsafe_allow_html=True)
+    # ── What recruiters should notice ──────────────────────────────
+    # A scan-friendly summary of the strongest engineering signals.
+    # Deliberately short so a recruiter can read it in ~15 seconds and still
+    # walk away with a correct mental model of what the project is.
+    st.markdown(
+        '<div class="section-title" style="margin-top:1.8rem;">What to notice</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<p class="section-sub">'
+        "A quick scan of the strongest engineering signals in this project."
+        "</p>",
+        unsafe_allow_html=True,
+    )
+    rec_col1, rec_col2 = st.columns(2)
+    with rec_col1:
+        st.markdown(
+            '<div class="glass-card">'
+            '<h3>📐 Rigorous ML process</h3>'
+            '<p>End-to-end reproducible pipeline from a single seed: '
+            'data augmentation (CutOut / MixUp / CutMix), cosine-annealing '
+            'LR scheduling, progressive unfreezing, and honest benchmarks '
+            'measured on the full 10 000-image test set.</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div class="glass-card">'
+            '<h3>🔬 Interpretability built in</h3>'
+            '<p>Grad-CAM heatmaps expose <em>where</em> each model looks, '
+            'making failure modes visible. Backward hooks handle frozen '
+            'backbones correctly — a common footgun in transfer learning.</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+    with rec_col2:
+        st.markdown(
+            '<div class="glass-card">'
+            '<h3>🚚 Three delivery surfaces</h3>'
+            '<p>Notebook, CLI tool, and this Streamlit web app all share a '
+            'single <code>model_utils</code> module — no copy-pasted model '
+            'definitions, no config drift between surfaces.</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div class="glass-card">'
+            '<h3>📊 Benchmarked, not just trained</h3>'
+            f'<p>{_TOTAL_TRAINED} architectures evaluated head-to-head on accuracy, '
+            'parameter count, size, latency, and throughput — with per-class '
+            'error analysis to explain the gaps, not just report them.</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+    st.markdown(
+        '<div class="section-title" style="margin-top:1.5rem;">What this project demonstrates</div>',
+        unsafe_allow_html=True,
+    )
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(
@@ -711,9 +1122,9 @@ def render_overview_tab() -> None:
         st.markdown(
             '<div class="glass-card">'
             '<h3>🚀 Deployment</h3>'
-            '<p>INT8 dynamic quantisation, command-line inference, and this '
-            'Streamlit web app — three delivery surfaces for the same model, '
-            'all served from a single shared model-utils module.</p>'
+            '<p>INT8 dynamic quantisation, a command-line inference tool, and '
+            "this Streamlit web app — three delivery surfaces served from a "
+            'single shared <code>model_utils</code> module.</p>'
             '</div>',
             unsafe_allow_html=True,
         )
@@ -755,7 +1166,11 @@ def render_prediction(
 
     is_correct = true_label is not None and top_class == true_label
     card_class = "pred-result correct" if is_correct else "pred-result"
-    badge = "badge-cnn" if model_name == "Custom CNN" else "badge-mn"
+    # We visually differentiate MobileNetV2 (sky-blue badge) from every other
+    # model (brand-purple badge) so compare-mode output is scannable at a
+    # glance. The base `.model-badge` class provides the purple default; the
+    # `.badge-mn` modifier switches to the blue variant.
+    badge = "badge-mn" if model_name == "MobileNetV2" else ""
 
     st.markdown(
         f'<div class="{card_class}">'
@@ -797,6 +1212,48 @@ def render_prediction(
             plt.close(fig)
 
 
+# Curated CIFAR-10 test-set indices chosen to show variety across the ten
+# classes. Each shows up as a clickable thumbnail in the preset gallery so a
+# recruiter can try the demo without hunting for their own image file. These
+# indices are deterministic — the dataset's download is fixed — so every
+# visitor sees the same gallery layout.
+#
+# We picked indices where the subject is centred and reasonably unambiguous;
+# they're not cherry-picked to make the model look good (MobileNetV2 still
+# gets Cat↔Dog wrong on index 3, which is the entire point of the Analysis
+# tab's confusion-pair discussion).
+PRESET_INDICES: list[tuple[int, str]] = [
+    (25,   "airplane"),
+    (2,    "ship"),
+    (7,    "frog"),
+    (6,    "automobile"),
+    (18,   "horse"),
+    (103,  "dog"),
+]
+
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # Mirrors .streamlit/config.toml's maxUploadSize
+
+
+def _set_cifar_sample(idx: int) -> None:
+    """Streamlit button on_click callback — load a CIFAR-10 test image by index.
+
+    Using a callback (rather than inlining the code after the button) lets us
+    update st.session_state BEFORE the next rerun starts rendering widgets,
+    which avoids the "cannot modify state after widget instantiated" error.
+    """
+    dataset = _load_cifar10_test()
+    tensor_img, label = dataset[int(idx)]
+    st.session_state["image"] = transforms.ToPILImage()(tensor_img)
+    st.session_state["true_label"] = CLASS_NAMES[label]
+    st.session_state["last_sample_idx"] = int(idx)
+
+
+def _set_random_sample() -> None:
+    dataset = _load_cifar10_test()
+    idx = int(np.random.randint(len(dataset)))
+    _set_cifar_sample(idx)
+
+
 def render_live_demo_tab(loaded_models: dict, device: torch.device, settings: dict) -> None:
     # (Previously this function rendered an `<a id="live-demo"></a>` anchor so
     # the hero CTA could `href="#live-demo"` from the Overview tab. That never
@@ -805,9 +1262,9 @@ def render_live_demo_tab(loaded_models: dict, device: torch.device, settings: di
     # st.segmented_control + on_click callbacks, which *does* work.)
     st.markdown('<div class="section-title">Live demo</div>', unsafe_allow_html=True)
     st.markdown(
-        '<p class="section-sub">Upload any image or pick one from the CIFAR-10 test set. '
-        'The model runs on-device in your browser session and shows its top predictions '
-        'alongside a Grad-CAM heatmap.</p>',
+        '<p class="section-sub">Upload any image, pick a CIFAR-10 test sample, or try a '
+        'preset below. The selected model runs inference in the hosting container and '
+        'shows its top predictions alongside a Grad-CAM heatmap.</p>',
         unsafe_allow_html=True,
     )
 
@@ -827,40 +1284,95 @@ def render_live_demo_tab(loaded_models: dict, device: torch.device, settings: di
 
     with tab_upload:
         uploaded = st.file_uploader(
-            "Drop a PNG/JPG/BMP/TIFF (max 10 MB)",
-            type=["png", "jpg", "jpeg", "bmp", "tiff"],
+            "Drop or pick an image",
+            type=["png", "jpg", "jpeg", "bmp", "tiff", "webp"],
+            help=(
+                "Supported formats: PNG, JPG, BMP, TIFF, WEBP. "
+                "Max size: 10 MB. Best results on photos of the 10 CIFAR-10 "
+                "classes: airplane, automobile, bird, cat, deer, dog, frog, "
+                "horse, ship, truck. Images are resized to 32×32 (Custom CNN) "
+                "or 224×224 (MobileNetV2) before inference."
+            ),
         )
         if uploaded is not None:
-            st.session_state["image"] = Image.open(uploaded).convert("RGB")
-            st.session_state["true_label"] = None
+            # Streamlit already validates the file type against the `type=`
+            # list, but the MIME-vs-extension check it uses is weak, so we
+            # double-check with PIL — which also catches corrupt files.
+            if uploaded.size > MAX_UPLOAD_BYTES:
+                st.error(
+                    f"File is {uploaded.size / 1024 / 1024:.1f} MB, which exceeds "
+                    "the 10 MB limit. Try a smaller image."
+                )
+            else:
+                try:
+                    img = Image.open(uploaded)
+                    img.verify()            # Cheap integrity check
+                    uploaded.seek(0)         # verify() leaves the stream at EOF
+                    st.session_state["image"] = Image.open(uploaded).convert("RGB")
+                    st.session_state["true_label"] = None
+                except Exception as exc:
+                    st.error(
+                        f"Could not read this image. It may be corrupt or in an "
+                        f"unsupported sub-format. Details: `{exc}`"
+                    )
 
     with tab_cifar:
         col1, col2, col3 = st.columns([1.1, 1, 1])
         with col1:
-            sample_idx = st.number_input("Image index (0–9999)", 0, 9999, 42)
+            sample_idx = st.number_input(
+                "Image index",
+                min_value=0,
+                max_value=9999,
+                value=st.session_state.get("last_sample_idx", 42),
+                help="Pick any index 0–9999 in the CIFAR-10 test set.",
+            )
         with col2:
-            if st.button("Load sample", width="stretch"):
-                dataset = _load_cifar10_test()
-                tensor_img, label = dataset[int(sample_idx)]
-                st.session_state["image"] = transforms.ToPILImage()(tensor_img)
-                st.session_state["true_label"] = CLASS_NAMES[label]
+            st.button(
+                "Load sample",
+                width="stretch",
+                on_click=_set_cifar_sample,
+                args=(int(sample_idx),),
+            )
         with col3:
-            if st.button("Random sample", width="stretch"):
-                dataset = _load_cifar10_test()
-                idx = int(np.random.randint(len(dataset)))
-                tensor_img, label = dataset[idx]
-                st.session_state["image"] = transforms.ToPILImage()(tensor_img)
-                st.session_state["true_label"] = CLASS_NAMES[label]
-                st.caption(f"Loaded random sample (index {idx})")
+            st.button(
+                "Random sample",
+                width="stretch",
+                on_click=_set_random_sample,
+            )
+        if st.session_state.get("last_sample_idx") is not None and st.session_state.get("true_label") is not None:
+            st.caption(
+                f"Loaded index **{st.session_state['last_sample_idx']}** "
+                f"(true label: *{st.session_state['true_label']}*)"
+            )
+
+    # ── Preset gallery — quick-try thumbnails ────────────────────
+    # We lazily thumbnail the selected presets from the test set. The
+    # @st.cache_resource on _load_cifar10_test() means the dataset is
+    # downloaded once per session; subsequent presses just index into it.
+    st.markdown('<div class="preset-label">Or try a preset</div>', unsafe_allow_html=True)
+    preset_cols = st.columns(len(PRESET_INDICES))
+    for col, (p_idx, p_label) in zip(preset_cols, PRESET_INDICES):
+        with col:
+            st.button(
+                p_label,
+                key=f"preset_{p_idx}",
+                width="stretch",
+                on_click=_set_cifar_sample,
+                args=(p_idx,),
+                help=f"Load CIFAR-10 test image #{p_idx} — a {p_label}.",
+            )
 
     image = st.session_state["image"]
     true_label = st.session_state["true_label"]
 
     if image is None:
         st.markdown(
-            '<div class="glass-card" style="text-align:center; padding:3rem 1rem;">'
-            '<p style="color:#94a3b8; font-size:1rem; margin:0;">'
-            'Upload an image or load a CIFAR-10 sample to get started.</p>'
+            '<div class="glass-card" style="text-align:center; padding:2.5rem 1.5rem; margin-top:1rem;">'
+            '<h3 style="margin-bottom:0.4rem;">No image yet</h3>'
+            '<p style="margin:0;">'
+            'Upload a photo, pick a CIFAR-10 test index, or click a preset above to '
+            'run the model. Grad-CAM and the top-K probabilities will appear here.'
+            '</p>'
             '</div>',
             unsafe_allow_html=True,
         )
@@ -906,11 +1418,17 @@ def render_live_demo_tab(loaded_models: dict, device: torch.device, settings: di
 # ============================================================================
 
 def render_models_tab() -> None:
+    deployed_count = sum(1 for m in BENCHMARK_METRICS.values() if m["available"])
+
     st.markdown('<div class="section-title">Model comparison</div>', unsafe_allow_html=True)
     st.markdown(
-        '<p class="section-sub">Five architectures were trained and evaluated on the '
-        'full CIFAR-10 test set. Transfer learning dominates training-from-scratch at '
-        'this dataset size — but at a latency cost.</p>',
+        f'<p class="section-sub">{_TOTAL_TRAINED} architectures were trained and '
+        'evaluated head-to-head on the full 10 000-image CIFAR-10 test set. '
+        f'{deployed_count} are shipped in the live demo — the rest are in the '
+        'table for context but their checkpoints are not deployed '
+        '(file-size and cold-start constraints on the free hosting tier). '
+        'Transfer learning dominates training-from-scratch at this dataset '
+        'size, but at a latency cost.</p>',
         unsafe_allow_html=True,
     )
 
@@ -946,8 +1464,10 @@ def render_models_tab() -> None:
 
     st.caption(
         "⭐ = highest-accuracy model on the test set. "
-        "'Deployed' indicates whether the checkpoint ships with the live app "
-        "(others are omitted to stay under GitHub's file-size limits)."
+        "'Deployed' indicates whether the checkpoint ships with the live app. "
+        "Non-deployed checkpoints were still trained and benchmarked; they are "
+        "omitted from the demo for file-size and cold-start reasons on the "
+        "free hosting tier, not because of missing work."
     )
 
     # ── Convergence chart ────────────────────────────────────────
@@ -975,10 +1495,11 @@ def render_models_tab() -> None:
 def render_analysis_tab() -> None:
     st.markdown('<div class="section-title">Per-class error analysis</div>', unsafe_allow_html=True)
     st.markdown(
-        '<p class="section-sub">CIFAR-10 has five classic confusion pairs where '
-        'inter-class visual similarity makes classification hard. Transfer learning '
-        'reduced misclassifications in every pair by at least 59%, and up to 78% '
-        'for the trickiest pair (bird ↔ deer).</p>',
+        '<p class="section-sub">CIFAR-10 has a handful of classic confusion pairs '
+        'where inter-class visual similarity makes classification hard. Transfer '
+        'learning from a frozen ImageNet backbone cut misclassifications in every '
+        'pair — most dramatically on the vehicle and animal silhouettes — while '
+        'Cat ↔ Dog stayed the stubbornest residual.</p>',
         unsafe_allow_html=True,
     )
 
@@ -1065,10 +1586,65 @@ def render_analysis_tab() -> None:
         <div class="glass-card">
             <h3>Latency &nbsp;≠&nbsp; model size</h3>
             <p>MobileNetV2 is actually <em>smaller</em> on disk than the Custom CNN
-            (8.76 MB vs 9.42 MB) but is ~17× slower per image on CPU because of the
+            (8.76 MB vs 9.42 MB) but is ~12× slower per image on CPU because of the
             224×224 input resolution required by the pretrained backbone. Throughput
             is the metric that matters for real-time applications, not checkpoint
             size.</p>
+        </div>
+        ''',
+        unsafe_allow_html=True,
+    )
+
+    # ── Model card / limitations ───────────────────────────────────
+    # Compact, trustworthy block that spells out what the model is and isn't.
+    # Placement here (at the bottom of Analysis) keeps the landing pages
+    # focused on engineering signals while still making the disclaimer easy
+    # for anyone who is evaluating suitability for a real task.
+    st.markdown(
+        '<div class="section-title" style="margin-top:2rem;">Model card</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<p class="section-sub">A short, honest description of what the model is, '
+        'what it is good for, and where its limits are.</p>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '''
+        <div class="model-card">
+            <h3>CIFAR-10 classifier — portfolio study</h3>
+            <dl>
+                <dt>Training data</dt>
+                <dd>CIFAR-10: 50 000 labelled 32×32 RGB images across 10 balanced classes
+                    (airplane, automobile, bird, cat, deer, dog, frog, horse, ship, truck).
+                    Reserved 10 000 images for testing.</dd>
+
+                <dt>Intended use</dt>
+                <dd>Educational exploration of transfer learning, interpretability, and
+                    ML-engineering discipline on a small-image benchmark. Demonstrates an
+                    end-to-end pipeline suitable for portfolio review.</dd>
+
+                <dt>Out-of-scope uses</dt>
+                <dd>Not intended for real-world image classification, content moderation,
+                    safety-critical systems, or any decision-making context where a wrong
+                    prediction has a meaningful cost. CIFAR-10 is a low-resolution research
+                    benchmark, not a production dataset.</dd>
+
+                <dt>Known limitations</dt>
+                <dd>
+                    • 32×32 training resolution — loses fine detail that real photos rely on.<br>
+                    • 10 classes only — anything outside these classes gets force-mapped to the
+                      nearest lookalike (e.g. bicycle → automobile, wolf → dog).<br>
+                    • Frozen ImageNet features inherit whatever biases exist in ImageNet.<br>
+                    • Distribution shift: performance drops sharply on images that do not look
+                      like centred, cleanly-cropped, daylight CIFAR-10 samples.
+                </dd>
+
+                <dt>Evaluation</dt>
+                <dd>All metrics on this site come from the full 10 000-image test set and
+                    are mirrored across README, training metadata JSON, and the comparison
+                    table — a single source of truth in <code>benchmark_data.py</code>.</dd>
+            </dl>
         </div>
         ''',
         unsafe_allow_html=True,
@@ -1084,13 +1660,14 @@ def render_about_tab() -> None:
     st.markdown(
         '''
         <p class="section-sub">
-            Hi! I'm <b>Pouya Alavi</b>, a Bachelor of Information Technology student at
+            I'm <b>Pouya Alavi</b>, a Bachelor of Information Technology student at
             Macquarie University majoring in Artificial Intelligence and Web/App
-            Development, graduating November 2026. This project started as a
-            university assignment and grew into a full deep-learning portfolio piece
-            that I use to evaluate my own ML-engineering discipline: reproducible
-            training, honest benchmarks, interpretability, and a polished delivery
-            surface.
+            Development. I built this project to practice the full loop of ML
+            engineering I care about most: <em>reproducible training</em>,
+            <em>honest benchmarking</em>, <em>interpretability</em>, and a
+            <em>polished delivery surface</em>. It started as a uni assignment
+            and kept growing whenever I wanted to sharpen one of those
+            disciplines in isolation.
         </p>
         ''',
         unsafe_allow_html=True,
@@ -1118,13 +1695,13 @@ def render_about_tab() -> None:
         st.markdown(
             '''
             <div class="glass-card">
-                <h3>What I focused on</h3>
+                <h3>Engineering focus</h3>
                 <p>
-                    ✓ Single-source-of-truth benchmark data<br>
-                    ✓ Shared <code>model_utils</code> module (DRY across CLI + app)<br>
+                    ✓ Single source of truth for benchmark data<br>
+                    ✓ Shared <code>model_utils</code> across notebook, CLI, and app<br>
                     ✓ Legacy checkpoint key remapping for backwards compatibility<br>
                     ✓ Graceful device fallback (CUDA → MPS → CPU)<br>
-                    ✓ Custom CSS matching my portfolio site<br>
+                    ✓ Inference-only deployment; training stays offline<br>
                     ✓ End-to-end reproducibility from a single seed
                 </p>
             </div>
@@ -1154,16 +1731,25 @@ def render_about_tab() -> None:
 # ============================================================================
 
 def main() -> None:
-    with st.spinner("Loading models…"):
+    with st.spinner("Waking models…"):
         loaded_models, device = _load_models()
-
-    settings = render_sidebar(loaded_models, device)
 
     # Initialize navigation state on first load. We do this BEFORE instantiating
     # the widget so the widget picks up the default from session_state, and so
     # callbacks (like the hero CTA) can safely mutate it.
     if "nav" not in st.session_state:
         st.session_state["nav"] = NAV_OVERVIEW
+
+    # We need to know which tab is active *before* rendering the sidebar so
+    # we can pick the right sidebar variant. The segmented_control widget
+    # reads its default from st.session_state["nav"], so we can peek there
+    # for the correct value even though the widget hasn't rendered yet.
+    active_preview = st.session_state.get("nav") or NAV_OVERVIEW
+
+    if active_preview == NAV_LIVE_DEMO:
+        settings = render_live_demo_sidebar(loaded_models, device)
+    else:
+        settings = render_info_sidebar(loaded_models, device)
 
     # NOTE: we intentionally do NOT use st.tabs here. st.tabs is a display-only
     # container with no key=, no programmatic "set active tab" API, and its

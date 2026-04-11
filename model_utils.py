@@ -223,48 +223,110 @@ MN_CANDIDATES = [
 ]
 
 
+# ── Model registry ─────────────────────────────────────────────────────────
+#
+# Single source of truth for "which architectures this app can load, and how".
+# Each entry has:
+#   builder        - zero-arg callable that returns a fresh nn.Module instance
+#   candidates     - ordered list of checkpoint filenames to probe on disk
+#   needs_remap    - whether to run _remap_legacy_keys() on the state dict
+#                    before loading (only the Custom CNN had an older format)
+#
+# Why a registry: the original load_models() hard-coded two nested loops — one
+# per architecture. Adding a third model required copy-pasting a whole block
+# and risked drift between eager and lazy loading paths. With the registry,
+# `list_available_models()` and `load_model_by_name()` both iterate the same
+# structure, and adding ResNet/EfficientNet/ViT becomes a ~5-line addition
+# (build function + filename candidates) — *if* the checkpoints are actually
+# shipped in the deployed repo. The current 2-model default keeps cold-start
+# under the free Streamlit Community Cloud budget.
+
+MODEL_REGISTRY: dict[str, dict] = {
+    "Custom CNN": {
+        "builder": lambda: CustomCNN(num_classes=10),
+        "candidates": CNN_CANDIDATES,
+        "needs_remap": True,
+    },
+    "MobileNetV2": {
+        "builder": lambda: build_mobilenetv2(num_classes=10),
+        "candidates": MN_CANDIDATES,
+        "needs_remap": False,
+    },
+}
+
+
+def _find_checkpoint(candidates: list[str]) -> str | None:
+    """Return the first candidate checkpoint path that exists on disk."""
+    for d in SEARCH_DIRS:
+        for c in candidates:
+            p = os.path.join(d, c)
+            if os.path.isfile(p):
+                return p
+    return None
+
+
+def list_available_models() -> list[str]:
+    """Return the display names of every registry model whose checkpoint exists.
+
+    This is a cheap filesystem-only check — it does NOT instantiate or load any
+    architecture. Safe to call at app boot and cache with `st.cache_resource`
+    so that cold start is bounded by the first *selected* model, not all of
+    them. If you add a new architecture to MODEL_REGISTRY but forget to ship
+    its .pth file, it simply won't appear in the returned list.
+    """
+    return [
+        name
+        for name, info in MODEL_REGISTRY.items()
+        if _find_checkpoint(info["candidates"]) is not None
+    ]
+
+
+def load_model_by_name(name: str, device: torch.device) -> nn.Module:
+    """Instantiate, load weights for, and switch a single model to inference mode.
+
+    Raises
+    ------
+    KeyError
+        The name is not in MODEL_REGISTRY.
+    FileNotFoundError
+        No candidate checkpoint could be found on disk.
+    RuntimeError
+        The checkpoint exists but doesn't match the architecture (re-raised
+        from torch's load_state_dict so callers can surface a helpful error).
+    """
+    if name not in MODEL_REGISTRY:
+        raise KeyError(f"Unknown model '{name}'. Registered: {list(MODEL_REGISTRY)}")
+
+    info = MODEL_REGISTRY[name]
+    path = _find_checkpoint(info["candidates"])
+    if path is None:
+        raise FileNotFoundError(
+            f"No checkpoint found for {name} in {SEARCH_DIRS}. "
+            f"Tried: {info['candidates']}"
+        )
+
+    model = info["builder"]()
+    state = torch.load(path, map_location=device, weights_only=True)
+    if info["needs_remap"]:
+        state = _remap_legacy_keys(state)
+    model.load_state_dict(state)
+    model.to(device)
+    model.eval()
+    return model
+
+
 def load_models(device: torch.device) -> dict[str, nn.Module]:
-    """Load all available models and return a {name: model} dict."""
-    loaded: dict[str, nn.Module] = {}
+    """Load every available model at once. Kept for backward compatibility.
 
-    # Custom CNN
-    model_cnn = CustomCNN(num_classes=10)
-    for d in SEARCH_DIRS:
-        for c in CNN_CANDIDATES:
-            p = os.path.join(d, c)
-            if os.path.isfile(p):
-                state = torch.load(p, map_location=device, weights_only=True)
-                state = _remap_legacy_keys(state)
-                try:
-                    model_cnn.load_state_dict(state)
-                except RuntimeError:
-                    continue
-                model_cnn.to(device)
-                model_cnn.eval()
-                loaded["Custom CNN"] = model_cnn
-                break
-        if "Custom CNN" in loaded:
-            break
-
-    # MobileNetV2
-    model_mn = build_mobilenetv2(num_classes=10)
-    for d in SEARCH_DIRS:
-        for c in MN_CANDIDATES:
-            p = os.path.join(d, c)
-            if os.path.isfile(p):
-                state = torch.load(p, map_location=device, weights_only=True)
-                try:
-                    model_mn.load_state_dict(state)
-                except RuntimeError:
-                    continue
-                model_mn.to(device)
-                model_mn.eval()
-                loaded["MobileNetV2"] = model_mn
-                break
-        if "MobileNetV2" in loaded:
-            break
-
-    return loaded
+    The Streamlit app uses the lazy `load_model_by_name()` path instead so
+    cold-start scales with the *selected* model, not the sum of all of them.
+    This one-shot variant is still imported by predict.py / gradcam.py / the
+    notebook — they rely on getting a fully populated `{name: model}` dict.
+    """
+    return {
+        name: load_model_by_name(name, device)
+        for name in list_available_models()
+    }
 
 
 # ============================================================================
@@ -304,7 +366,11 @@ def predict(
     transform = get_transform(model_name)
     tensor = transform(image).unsqueeze(0).to(device)
     model.eval()
-    with torch.no_grad():
+    # torch.inference_mode() is strictly faster than torch.no_grad() because
+    # it also disables version counters and view tracking. Safe here because
+    # we never need autograd on the returned logits — Grad-CAM runs its own
+    # forward pass with requires_grad=True on the input tensor.
+    with torch.inference_mode():
         logits = model(tensor)
         probs = F.softmax(logits, dim=1)[0]
 
