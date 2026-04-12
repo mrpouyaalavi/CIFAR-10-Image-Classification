@@ -1497,16 +1497,30 @@ def _inject_toolbar_customization() -> None:
           return;
         }}
 
-        // ── GitHub / Fork / Source → hide ──
+        // Helper: paint every SVG descendant a given colour
+        function paintSvg(el, color) {{
+          var svg = el.querySelector("svg");
+          if (svg) {{
+            svg.style.setProperty("color", color, "important");
+            svg.querySelectorAll("path, rect, circle, ellipse, polygon, polyline, line").forEach(function(p) {{
+              if (p.getAttribute("fill") !== "none") p.style.setProperty("fill", color, "important");
+              if (p.getAttribute("stroke") !== "none") p.style.setProperty("stroke", color, "important");
+            }});
+          }}
+          if (btn) btn.style.setProperty("color", color, "important");
+        }}
+
+        // ── GitHub / Fork / Source → purple ──
         if (hint.includes("github") || hint.includes("source")
             || hint.includes("fork")) {{
-          wrapper.style.setProperty("display", "none", "important");
+          paintSvg(wrapper, "#7c3aed");
           return;
         }}
 
-        // ── Edit / Pencil / Codespaces → keep, enlarge, add tooltip ──
+        // ── Edit / Pencil / Codespaces → light brown, enlarge, tooltip ──
         if (hint.includes("edit") || hint.includes("codespace")
             || hint.includes("pencil")) {{
+          paintSvg(wrapper, "#b8860b");
           btn.setAttribute("title",
             "Edit with Codespaces\\n" + CODESPACES_URL);
           var svg = wrapper.querySelector("svg");
