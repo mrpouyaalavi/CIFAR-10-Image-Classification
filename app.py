@@ -1323,6 +1323,39 @@ def _build_css(theme_mode: str) -> str:
         color: var(--text);
         mix-blend-mode: normal;
     }
+
+    /* ── Widget labels ──
+       Streamlit's base="dark" theme paints widget labels near-white.
+       In light mode this makes labels like "Drop or pick an image"
+       invisible on the light uploader background. Override all widget
+       labels to use the theme-aware text colour. */
+    [data-testid="stWidgetLabel"],
+    [data-testid="stWidgetLabel"] p,
+    [data-testid="stWidgetLabel"] label,
+    [data-testid="stWidgetLabel"] span {
+        color: var(--text) !important;
+    }
+
+    /* ── Toolbar CSS-mask icon fix ──
+       Some Streamlit toolbar icons render via -webkit-mask-image +
+       background-color (the mask clips the bg to the icon shape).
+       Our blanket "background: transparent" on header divs kills
+       these icons. Re-paint masked elements inside the toolbar. */
+    [data-testid="stHeader"] span[data-testid*="Icon"],
+    [data-testid="stToolbar"] span[data-testid*="Icon"],
+    [data-testid="stAppDeployButton"] span[data-testid*="Icon"],
+    [data-testid="stMainMenuButton"] span[data-testid*="Icon"],
+    [data-testid="stToolbarActionButton"] span[data-testid*="Icon"],
+    [data-testid="stHeader"] span[role="img"],
+    [data-testid="stToolbar"] span[role="img"] {
+        background-color: var(--text-muted) !important;
+    }
+    /* Hide truly empty toolbar action wrappers that have no icon or
+       text content — prevents blank rounded boxes next to Share. */
+    [data-testid="stToolbarActions"] > div:empty,
+    [data-testid="stHeader"] button:not(:has(svg)):not(:has(span)):not(:has(img)) {
+        display: none !important;
+    }
 </style>
 """
     )
@@ -1602,6 +1635,10 @@ def _render_theme_toggle() -> None:
     if new_mode != current:
         st.session_state["theme"] = new_mode
         st.query_params["theme"] = new_mode
+        # Preserve active tab across theme changes (the theme bridge JS
+        # may trigger a full page navigation that destroys session_state)
+        current_nav = st.session_state.get("nav", NAV_OVERVIEW)
+        st.query_params["tab"] = current_nav
         st.rerun()
 
 
@@ -1689,11 +1726,16 @@ def render_live_demo_sidebar(available_names: list[str], device: torch.device) -
                 return f"{name} · recommended"
             return name
 
+        # Guard against stale session_state (e.g. checkpoint removed between runs)
+        if st.session_state.get("model_select") not in available_names:
+            st.session_state.pop("model_select", None)
+
         selected_model = st.sidebar.selectbox(
             "Model",
             available_names,
             index=available_names.index(default),
             format_func=_label,
+            key="model_select",
             help=(
                 "Choose the model to run inference with. "
                 f"{default} is the highest-accuracy deployed model "
@@ -2028,10 +2070,23 @@ def render_prediction(
         f'<div class="{card_class}">'
         f'<span class="model-badge {badge}">{model_name}</span>'
         f'<div class="pred-class">{top_class.upper()}</div>'
-        f'<div class="pred-conf">{top_conf:.1f}% confidence</div>'
+        f'<div class="pred-conf">{top_conf:.1f}% confidence'
+        f'{"  · closest CIFAR-10 class" if true_label is None else ""}'
+        f'</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
+
+    # OOD caveat for user-uploaded images (no ground truth available)
+    if true_label is None:
+        st.caption(
+            "⚠️ This model only knows **10 CIFAR-10 classes** "
+            f"({', '.join(CLASS_NAMES)}). "
+            "If your image is not one of these, the prediction shows the "
+            "**closest matching class**, not a correct identification. "
+            "High confidence on out-of-distribution images is a known "
+            "limitation of softmax classifiers."
+        )
 
     if true_label is not None:
         if is_correct:
@@ -2131,6 +2186,22 @@ def render_live_demo_tab(
         '<p class="section-sub">Upload any image, pick a CIFAR-10 test sample, or try a '
         'preset below. The selected model runs inference in the hosting container and '
         'shows its top predictions alongside a Grad-CAM heatmap.</p>',
+        unsafe_allow_html=True,
+    )
+
+    # Show supported classes so users know what the model can recognise
+    _class_chips = " ".join(
+        f'<span class="chip">{c}</span>' for c in CLASS_NAMES
+    )
+    st.markdown(
+        '<div style="margin-bottom:1rem;">'
+        '<span style="font-size:0.72rem;font-weight:600;letter-spacing:0.1em;'
+        'text-transform:uppercase;color:var(--text-muted);">Supported classes</span>'
+        f'<br>{_class_chips}'
+        '<p style="font-size:0.8rem;color:var(--text-dim);margin:0.4rem 0 0 0;">'
+        'Images outside these 10 categories will be mapped to the closest class. '
+        'See the Analysis tab for known confusion pairs.</p>'
+        '</div>',
         unsafe_allow_html=True,
     )
 
@@ -2433,6 +2504,60 @@ def render_models_tab() -> None:
         "omitted from the demo for file-size and cold-start reasons on the "
         "free hosting tier, not because of missing work."
     )
+
+    # ── Try a deployed model ────────────────────────────────────
+    _deployed_keys = [k for k, v in BENCHMARK_METRICS.items() if v["available"]]
+    _not_deployed_keys = [k for k, v in BENCHMARK_METRICS.items() if not v["available"]]
+
+    st.markdown(
+        '<div class="section-title" style="margin-top:2rem;">Try a model</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<p class="section-sub">Deployed models can be tested on the Live Demo tab '
+        'with your own images or CIFAR-10 samples.</p>',
+        unsafe_allow_html=True,
+    )
+
+    _try_cols = st.columns(len(_deployed_keys))
+    for _tc, _dk in zip(_try_cols, _deployed_keys):
+        _dm = BENCHMARK_METRICS[_dk]
+        with _tc:
+            st.markdown(
+                f'<div class="glass-card" style="text-align:center;">'
+                f'<h3>{_dm["display_name"]}'
+                f'{"  ⭐" if _dk == best_model_key() else ""}</h3>'
+                f'<p style="margin:0.2rem 0;">'
+                f'{_dm["test_accuracy"]:.2f}% accuracy · '
+                f'{_dm["strategy"]}</p>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+            def _go_try(model_key: str = _dk) -> None:
+                st.session_state["nav"] = NAV_LIVE_DEMO
+                st.session_state["model_select"] = model_key
+
+            st.button(
+                f"Try {_dm['display_name']} →",
+                key=f"try_{_dk}",
+                use_container_width=True,
+                on_click=_go_try,
+            )
+
+    if _not_deployed_keys:
+        st.markdown(
+            '<p class="section-sub" style="margin-top:0.8rem;">'
+            f'<b>{len(_not_deployed_keys)} additional model'
+            f'{"s" if len(_not_deployed_keys) > 1 else ""}</b> '
+            f'({", ".join(_not_deployed_keys)}) '
+            'were trained and benchmarked but their checkpoints are not '
+            'deployed — the free Streamlit Community Cloud tier has '
+            'file-size and cold-start constraints that make shipping all '
+            f'{_TOTAL_TRAINED} models impractical. Their metrics appear '
+            'in the table above for context.</p>',
+            unsafe_allow_html=True,
+        )
 
     # ── Convergence chart ────────────────────────────────────────
     st.markdown('<div class="section-title" style="margin-top:2rem;">Convergence</div>', unsafe_allow_html=True)
@@ -2883,6 +3008,13 @@ def main() -> None:
     device = _get_device()
     available_names = _available_model_names()
 
+    # Restore navigation from URL query params (survives theme-triggered page
+    # reloads that destroy session_state). This must happen BEFORE the widget
+    # so the segmented_control picks up the restored value.
+    url_tab = st.query_params.get("tab")
+    if url_tab and url_tab in NAV_OPTIONS:
+        st.session_state["nav"] = url_tab
+
     # Initialize navigation state on first load. We do this BEFORE instantiating
     # the widget so the widget picks up the default from session_state, and so
     # callbacks (like the hero CTA) can safely mutate it.
@@ -2917,6 +3049,10 @@ def main() -> None:
     # when no default is in session_state), treat it as Overview so we never
     # render a blank page.
     active = selected or NAV_OVERVIEW
+
+    # Keep the URL query param in sync so the tab survives full page reloads
+    if active != st.query_params.get("tab"):
+        st.query_params["tab"] = active
 
     if active == NAV_OVERVIEW:
         render_overview_tab()
