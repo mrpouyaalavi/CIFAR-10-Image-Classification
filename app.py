@@ -1327,6 +1327,53 @@ def _build_css(theme_mode: str) -> str:
     [data-testid="stToolbarActions"] > div:empty {
         display: none !important;
     }
+
+    /* ── Hide GitHub & Star toolbar buttons, keep only Edit (pencil) ──
+       Streamlit Community Cloud injects action buttons into stToolbarActions
+       in order: Star, GitHub/Fork, Edit (pencil). We hide all except the
+       last child (the Edit/Codespaces pencil). */
+    [data-testid="stToolbarActions"] > [data-testid="stToolbarActionButton"]:not(:last-child) {
+        display: none !important;
+    }
+
+    /* ── Pencil icon — enlarge to fill its button container ── */
+    [data-testid="stToolbarActions"] > [data-testid="stToolbarActionButton"]:last-child svg {
+        width: 20px !important;
+        height: 20px !important;
+    }
+    [data-testid="stToolbarActions"] > [data-testid="stToolbarActionButton"]:last-child button {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 4px !important;
+    }
+
+    /* ── Pencil hover tooltip with Codespaces link ── */
+    [data-testid="stToolbarActions"] > [data-testid="stToolbarActionButton"]:last-child {
+        position: relative !important;
+    }
+    [data-testid="stToolbarActions"] > [data-testid="stToolbarActionButton"]:last-child:hover::after {
+        content: "Edit with Codespaces";
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        white-space: nowrap;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--bg);
+        background: var(--text);
+        padding: 4px 10px;
+        border-radius: 6px;
+        z-index: 9999;
+        pointer-events: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+        opacity: 0;
+        animation: tooltipFadeIn 0.15s ease forwards 0.3s;
+    }
+    @keyframes tooltipFadeIn {
+        to { opacity: 1; }
+    }
+
     /* NOTE — Platform limitation: the three-dot menu popup (Rerun, Clear
        cache, Print, Record screen, About) is rendered by Streamlit's
        BaseWeb layer and cannot be reliably themed from app-level CSS.
