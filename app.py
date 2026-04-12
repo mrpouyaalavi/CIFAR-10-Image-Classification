@@ -665,30 +665,24 @@ def _build_css(theme_mode: str) -> str:
        Earlier the rules only targeted [data-testid="stToolbar"], which
        never reached these siblings. We repaint each one here so they
        blend with the light-mode header. */
-    /* Background clearing — target div wrappers and buttons only, NOT
-       their inner icon elements (span / svg). Modern Streamlit renders
-       toolbar icons via CSS masks (-webkit-mask-image + background-color)
-       or icon fonts; blanket-clearing * { background: transparent } makes
-       those icons invisible. */
+    /* Background clearing — only the outermost wrappers and their
+       direct buttons. Do NOT blanket-clear inner divs/spans because
+       Streamlit renders some icons via CSS masks where
+       background-color IS the icon colour. */
     [data-testid="stAppDeployButton"],
-    [data-testid="stAppDeployButton"] div,
-    [data-testid="stAppDeployButton"] button,
     [data-testid="stMainMenuButton"],
-    [data-testid="stMainMenuButton"] div,
-    [data-testid="stMainMenuButton"] button,
     [data-testid="stToolbarActionButton"],
-    [data-testid="stToolbarActionButton"] div,
-    [data-testid="stToolbarActionButton"] button,
-    [data-testid="stToolbarActions"],
-    [data-testid="stToolbarActions"] div {
+    [data-testid="stToolbarActions"] {
         background: transparent !important;
-        background-color: transparent !important;
         box-shadow: none !important;
     }
-    /* Force visible colour on EVERY descendant — handles SVGs
-       (fill/stroke = currentColor), icon fonts (color), and CSS-mask
-       icons (background-color inherits from currentColor when not
-       cleared). */
+    [data-testid="stAppDeployButton"] > button,
+    [data-testid="stMainMenuButton"] > button,
+    [data-testid="stToolbarActionButton"] > button {
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    /* Set visible foreground colour for text and SVG icons. */
     [data-testid="stAppDeployButton"] *,
     [data-testid="stMainMenuButton"] *,
     [data-testid="stToolbarActionButton"] *,
@@ -922,27 +916,17 @@ def _build_css(theme_mode: str) -> str:
         background: transparent !important;
         background-color: transparent !important;
     }
-    /* Clear backgrounds on div wrappers and buttons only — NOT on span
-       or svg icon elements. Modern Streamlit can render toolbar icons
-       via CSS masks (-webkit-mask-image + background-color) or icon
-       fonts; blanket-clearing * { background: transparent } makes those
-       icons invisible, leaving empty rounded boxes. */
-    [data-testid="stHeader"] div,
-    [data-testid="stHeader"] button,
-    [data-testid="stToolbar"] div,
-    [data-testid="stToolbar"] button,
-    [data-testid="stStatusWidget"] div {
-        background: transparent !important;
-        background-color: transparent !important;
-    }
-    /* Paint EVERY descendant with the correct foreground colour.
-       Covers SVGs (fill/stroke = currentColor), icon fonts (color),
-       and CSS-mask icons (background-color follows currentColor). */
-    [data-testid="stHeader"] *,
-    [data-testid="stToolbar"] *,
+    /* Paint text/icons with the theme foreground colour.  For SVGs
+       (fill/stroke = currentColor) and icon fonts (color). */
+    [data-testid="stHeader"] > *,
+    [data-testid="stToolbar"] > *,
     [data-testid="stMainMenu"] *,
     [data-testid="stDecoration"] * {
         color: var(--text-muted) !important;
+    }
+    /* Ensure every header/toolbar element is visible. */
+    [data-testid="stHeader"] button,
+    [data-testid="stToolbar"] button {
         opacity: 1 !important;
         visibility: visible !important;
     }
@@ -1071,34 +1055,19 @@ def _build_css(theme_mode: str) -> str:
 
     /* Checkbox + radio — BaseWeb renders both controls with a
        dark 1c1f26 fill when unchecked. Repaint to the raised
-       surface so they sit on a white card cleanly. */
-    [data-baseweb="checkbox"] span[role="checkbox"],
-    [data-baseweb="checkbox"] div[role="checkbox"] {
-        background: var(--bg-raised) !important;
-        border-color: var(--border) !important;
-    }
-    [data-baseweb="checkbox"] span[aria-checked="true"],
-    [data-baseweb="checkbox"] div[aria-checked="true"] {
-        background: var(--brand) !important;
-        border-color: var(--brand) !important;
-    }
-    /* BaseWeb renders the check square as an inner <span> under the
-       label whose background is inlined via emotion styled-components.
-       The only selector that reliably overrides it in light mode is
-       the `stCheckbox` widget testid + every descendant span that
-       isn't the checked state. */
-    [data-testid="stCheckbox"] label > span:first-child,
-    [data-testid="stCheckbox"] span[role="checkbox"],
-    [data-testid="stCheckbox"] [data-baseweb="checkbox"] > div:first-child,
-    [data-testid="stCheckbox"] [data-baseweb="checkbox"] span:first-child {
+       surface so they sit on a white card cleanly.
+       IMPORTANT: only target the actual control element
+       ([role="checkbox"]), NOT parent label/span wrappers, to
+       avoid rendering two visible bordered boxes per checkbox. */
+    [data-testid="stCheckbox"] [role="checkbox"],
+    [data-baseweb="checkbox"] [role="checkbox"] {
         background: var(--bg-raised) !important;
         background-color: var(--bg-raised) !important;
         border: 1.5px solid var(--border-brand) !important;
         border-radius: 4px !important;
     }
-    [data-testid="stCheckbox"] label > span:first-child[aria-checked="true"],
-    [data-testid="stCheckbox"] span[role="checkbox"][aria-checked="true"],
-    [data-testid="stCheckbox"] [data-baseweb="checkbox"] span[aria-checked="true"] {
+    [data-testid="stCheckbox"] [role="checkbox"][aria-checked="true"],
+    [data-baseweb="checkbox"] [role="checkbox"][aria-checked="true"] {
         background: var(--brand) !important;
         background-color: var(--brand) !important;
         border-color: var(--brand) !important;
@@ -1339,15 +1308,18 @@ def _build_css(theme_mode: str) -> str:
     /* ── Toolbar CSS-mask icon fix ──
        Some Streamlit toolbar icons render via -webkit-mask-image +
        background-color (the mask clips the bg to the icon shape).
-       Our blanket "background: transparent" on header divs kills
-       these icons. Re-paint masked elements inside the toolbar. */
-    [data-testid="stHeader"] span[data-testid*="Icon"],
-    [data-testid="stToolbar"] span[data-testid*="Icon"],
-    [data-testid="stAppDeployButton"] span[data-testid*="Icon"],
-    [data-testid="stMainMenuButton"] span[data-testid*="Icon"],
-    [data-testid="stToolbarActionButton"] span[data-testid*="Icon"],
-    [data-testid="stHeader"] span[role="img"],
-    [data-testid="stToolbar"] span[role="img"] {
+       Re-paint masked elements inside the toolbar — covers both
+       <span> and <div> wrappers that Streamlit may use. */
+    [data-testid="stHeader"] [data-testid*="Icon"],
+    [data-testid="stToolbar"] [data-testid*="Icon"],
+    [data-testid="stAppDeployButton"] [data-testid*="Icon"],
+    [data-testid="stMainMenuButton"] [data-testid*="Icon"],
+    [data-testid="stToolbarActionButton"] [data-testid*="Icon"],
+    [data-testid="stHeader"] [role="img"],
+    [data-testid="stToolbar"] [role="img"],
+    [data-testid="stAppDeployButton"] [role="img"],
+    [data-testid="stMainMenuButton"] [role="img"],
+    [data-testid="stToolbarActionButton"] [role="img"] {
         background-color: var(--text-muted) !important;
     }
     /* Hide genuinely empty toolbar action wrappers — prevents blank
