@@ -1450,19 +1450,13 @@ def _inject_theme_bridge(current_theme: str, url_had_theme: bool) -> None:
 
 
 def _inject_toolbar_customization() -> None:
-    """Hide the GitHub & Star toolbar buttons; enlarge the pencil and add tooltip.
+    """
+    Customize Streamlit Community Cloud toolbar buttons.
 
-    Streamlit Community Cloud injects several action buttons into the
-    ``stToolbarActions`` container (Share, Star, GitHub/Fork, Edit/Pencil).
-    The buttons all share the same ``stToolbarActionButton`` data-testid,
-    so we cannot distinguish them with pure CSS. Instead we inject a tiny
-    JS snippet that inspects each button's ``title`` / ``aria-label`` /
-    visible text and hides the unwanted ones.
-
-    The script runs inside a zero-height ``st.html`` iframe and reaches
-    the parent document via ``window.parent.document`` (same-origin on
-    Streamlit Community Cloud). It retries a few times with increasing
-    delays to catch late-rendering toolbar elements.
+    - Hide Star / Favorite
+    - Force GitHub / Source button to purple
+    - Force Edit / Pencil / Codespaces button to brown-gold
+    - Re-apply styling after late toolbar rerenders
     """
     codespaces_url = (
         "https://share.streamlit.io/edit-with-codespaces"
@@ -1471,109 +1465,213 @@ def _inject_toolbar_customization() -> None:
         "&branch=main"
         "&mainModule=app.py"
     )
+
     html = f"""
-<script>
-(function() {{
-  var CODESPACES_URL = {json.dumps(codespaces_url)};
+    <script>
+    (function() {{
+      var CODESPACES_URL = {json.dumps(codespaces_url)};
+      var GITHUB_COLOR = "#7c3aed";
+      var EDIT_COLOR = "#b8860b";
 
-  function paintSvg(wrapper, btn, color) {{
-    if (!wrapper) return;
+      function injectForceStyles(doc) {{
+        if (doc.getElementById("forced-toolbar-icon-colors")) return;
 
-    var svg = wrapper.querySelector("svg");
+        var style = doc.createElement("style");
+        style.id = "forced-toolbar-icon-colors";
+        style.textContent = `
+          [data-testid="stToolbarActionButton"][data-force-color="github"],
+          [data-testid="stToolbarActionButton"][data-force-color="github"] * {{
+            color: ${{
+              GITHUB_COLOR
+            }} !important;
+          }}
 
-    if (btn) {{
-      btn.style.setProperty("color", color, "important");
-      btn.style.setProperty("fill", color, "important");
-      btn.style.setProperty("stroke", color, "important");
-    }}
+          [data-testid="stToolbarActionButton"][data-force-color="edit"],
+          [data-testid="stToolbarActionButton"][data-force-color="edit"] * {{
+            color: ${{
+              EDIT_COLOR
+            }} !important;
+          }}
 
-    if (svg) {{
-      svg.style.setProperty("color", color, "important");
-      svg.style.setProperty("fill", color, "important");
-      svg.style.setProperty("stroke", color, "important");
+          [data-testid="stToolbarActionButton"][data-force-color="github"] svg,
+          [data-testid="stToolbarActionButton"][data-force-color="github"] svg *,
+          [data-testid="stToolbarActionButton"][data-force-color="github"] path,
+          [data-testid="stToolbarActionButton"][data-force-color="github"] rect,
+          [data-testid="stToolbarActionButton"][data-force-color="github"] circle,
+          [data-testid="stToolbarActionButton"][data-force-color="github"] ellipse,
+          [data-testid="stToolbarActionButton"][data-force-color="github"] polygon,
+          [data-testid="stToolbarActionButton"][data-force-color="github"] polyline,
+          [data-testid="stToolbarActionButton"][data-force-color="github"] line,
+          [data-testid="stToolbarActionButton"][data-force-color="github"] g,
+          [data-testid="stToolbarActionButton"][data-force-color="github"] use {{
+            fill: ${{
+              GITHUB_COLOR
+            }} !important;
+            stroke: ${{
+              GITHUB_COLOR
+            }} !important;
+            color: ${{
+              GITHUB_COLOR
+            }} !important;
+          }}
 
-      svg.querySelectorAll("*").forEach(function(node) {{
-        if (node.hasAttribute("fill") && node.getAttribute("fill") !== "none") {{
-          node.style.setProperty("fill", color, "important");
-        }}
-        if (node.hasAttribute("stroke") && node.getAttribute("stroke") !== "none") {{
-          node.style.setProperty("stroke", color, "important");
-        }}
-        node.style.setProperty("color", color, "important");
-      }});
-    }}
-  }}
+          [data-testid="stToolbarActionButton"][data-force-color="edit"] svg,
+          [data-testid="stToolbarActionButton"][data-force-color="edit"] svg *,
+          [data-testid="stToolbarActionButton"][data-force-color="edit"] path,
+          [data-testid="stToolbarActionButton"][data-force-color="edit"] rect,
+          [data-testid="stToolbarActionButton"][data-force-color="edit"] circle,
+          [data-testid="stToolbarActionButton"][data-force-color="edit"] ellipse,
+          [data-testid="stToolbarActionButton"][data-force-color="edit"] polygon,
+          [data-testid="stToolbarActionButton"][data-force-color="edit"] polyline,
+          [data-testid="stToolbarActionButton"][data-force-color="edit"] line,
+          [data-testid="stToolbarActionButton"][data-force-color="edit"] g,
+          [data-testid="stToolbarActionButton"][data-force-color="edit"] use {{
+            fill: ${{
+              EDIT_COLOR
+            }} !important;
+            stroke: ${{
+              EDIT_COLOR
+            }} !important;
+            color: ${{
+              EDIT_COLOR
+            }} !important;
+          }}
+        `;
+        doc.head.appendChild(style);
+      }}
 
-  function customize() {{
-    try {{
-      var doc = window.parent.document;
-      var wrappers = doc.querySelectorAll('[data-testid="stToolbarActionButton"]');
-      if (!wrappers.length) return;
+      function hardPaint(wrapper, color) {{
+        if (!wrapper) return;
 
-      wrappers.forEach(function(wrapper) {{
+        var all = wrapper.querySelectorAll("*");
         var btn = wrapper.querySelector("button, a") || wrapper;
-        var title = ((btn.getAttribute("title") || "") + "").toLowerCase();
-        var aria = ((btn.getAttribute("aria-label") || "") + "").toLowerCase();
-        var text = ((btn.textContent || "") + "").toLowerCase();
-        var hint = (title + " " + aria + " " + text).trim();
+        var svg = wrapper.querySelector("svg");
 
-        // ── Star / Favorite → hide ──
-        if (hint.includes("star") || hint.includes("favorite")) {{
-          wrapper.style.setProperty("display", "none", "important");
-          return;
+        [wrapper, btn].forEach(function(el) {{
+          if (!el) return;
+          el.style.setProperty("color", color, "important");
+          el.style.setProperty("fill", color, "important");
+          el.style.setProperty("stroke", color, "important");
+          el.setAttribute("data-colored", "true");
+        }});
+
+        all.forEach(function(node) {{
+          try {{
+            node.style.setProperty("color", color, "important");
+            node.style.setProperty("fill", color, "important");
+            node.style.setProperty("stroke", color, "important");
+            node.style.setProperty("border-color", color, "important");
+            node.style.setProperty("caret-color", color, "important");
+
+            if (node.hasAttribute("fill") && node.getAttribute("fill") !== "none") {{
+              node.setAttribute("fill", color);
+            }}
+
+            if (node.hasAttribute("stroke") && node.getAttribute("stroke") !== "none") {{
+              node.setAttribute("stroke", color);
+            }}
+
+            if (node.getAttribute("fill") === "currentColor") {{
+              node.style.setProperty("fill", color, "important");
+              node.setAttribute("fill", color);
+            }}
+
+            if (node.getAttribute("stroke") === "currentColor") {{
+              node.style.setProperty("stroke", color, "important");
+              node.setAttribute("stroke", color);
+            }}
+          }} catch (e) {{}}
+        }});
+
+        if (svg) {{
+          svg.style.setProperty("width", "20px", "important");
+          svg.style.setProperty("height", "20px", "important");
+          svg.style.setProperty("min-width", "20px", "important");
+          svg.style.setProperty("min-height", "20px", "important");
+          svg.style.setProperty("color", color, "important");
+          svg.style.setProperty("fill", color, "important");
+          svg.style.setProperty("stroke", color, "important");
+          svg.style.setProperty("filter", "none", "important");
         }}
+      }}
 
-        // ── GitHub / Fork / Source → purple ──
-        if (
-          hint.includes("github") ||
-          hint.includes("source") ||
-          hint.includes("fork")
-        ) {{
-          paintSvg(wrapper, btn, "#7c3aed");
-          return;
-        }}
+      function classifyAndPaint(doc) {{
+        injectForceStyles(doc);
 
-        // ── Edit / Pencil / Codespaces → light brown, enlarge, tooltip ──
-        if (
-          hint.includes("edit") ||
-          hint.includes("codespace") ||
-          hint.includes("codespaces") ||
-          hint.includes("pencil")
-        ) {{
-          paintSvg(wrapper, btn, "#b8860b");
+        var wrappers = doc.querySelectorAll('[data-testid="stToolbarActionButton"]');
+        if (!wrappers.length) return;
 
-          if (btn) {{
+        wrappers.forEach(function(wrapper) {{
+          var btn = wrapper.querySelector("button, a") || wrapper;
+          var title = String(btn.getAttribute("title") || "").toLowerCase();
+          var aria = String(btn.getAttribute("aria-label") || "").toLowerCase();
+          var text = String(btn.textContent || "").toLowerCase();
+          var hint = (title + " " + aria + " " + text).trim();
+
+          if (hint.includes("star") || hint.includes("favorite")) {{
+            wrapper.style.setProperty("display", "none", "important");
+            return;
+          }}
+
+          if (
+            hint.includes("github") ||
+            hint.includes("source") ||
+            hint.includes("fork")
+          ) {{
+            wrapper.setAttribute("data-force-color", "github");
+            hardPaint(wrapper, GITHUB_COLOR);
+            return;
+          }}
+
+          if (
+            hint.includes("edit") ||
+            hint.includes("pencil") ||
+            hint.includes("codespace") ||
+            hint.includes("codespaces")
+          ) {{
+            wrapper.setAttribute("data-force-color", "edit");
+            hardPaint(wrapper, EDIT_COLOR);
+
             btn.setAttribute("title", "Edit with Codespaces\\n" + CODESPACES_URL);
             btn.style.setProperty("display", "flex", "important");
             btn.style.setProperty("align-items", "center", "important");
             btn.style.setProperty("justify-content", "center", "important");
             btn.style.setProperty("padding", "4px", "important");
+            return;
           }}
+        }});
+      }}
 
-          var svg = wrapper.querySelector("svg");
-          if (svg) {{
-            svg.style.setProperty("width", "20px", "important");
-            svg.style.setProperty("height", "20px", "important");
-            svg.style.setProperty("min-width", "20px", "important");
-            svg.style.setProperty("min-height", "20px", "important");
-          }}
+      function run() {{
+        try {{
+          var doc = window.parent.document;
+          classifyAndPaint(doc);
 
-          return;
+          var observer = new MutationObserver(function() {{
+            classifyAndPaint(doc);
+          }});
+
+          observer.observe(doc.body, {{
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ["title", "aria-label", "class", "style"]
+          }});
+
+          [200, 600, 1500, 3000, 5000, 8000].forEach(function(ms) {{
+            setTimeout(function() {{
+              classifyAndPaint(doc);
+            }}, ms);
+          }});
+        }} catch (e) {{
+          console.debug("force-color toolbar patch skipped:", e);
         }}
-      }});
-    }} catch (e) {{
-      // Cross-origin or DOM not ready — fail silently.
-      console.debug("Toolbar customization skipped:", e);
-    }}
-  }}
+      }}
 
-  // Retry because Streamlit toolbar may render late
-  [200, 600, 1500, 3000, 5000].forEach(function(ms) {{
-    setTimeout(customize, ms);
-  }});
-}})();
-</script>
-"""
+      run();
+    }})();
+    </script>
+    """
     try:
         st.html(html, unsafe_allow_javascript=True)  # type: ignore[call-arg]
     except (AttributeError, TypeError):
