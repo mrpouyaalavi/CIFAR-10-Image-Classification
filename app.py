@@ -1328,51 +1328,6 @@ def _build_css(theme_mode: str) -> str:
         display: none !important;
     }
 
-    /* ── Hide GitHub & Star toolbar buttons, keep only Edit (pencil) ──
-       Streamlit Community Cloud injects action buttons into stToolbarActions
-       in order: Star, GitHub/Fork, Edit (pencil). We hide all except the
-       last child (the Edit/Codespaces pencil). */
-    [data-testid="stToolbarActions"] > [data-testid="stToolbarActionButton"]:not(:last-child) {
-        display: none !important;
-    }
-
-    /* ── Pencil icon — enlarge to fill its button container ── */
-    [data-testid="stToolbarActions"] > [data-testid="stToolbarActionButton"]:last-child svg {
-        width: 20px !important;
-        height: 20px !important;
-    }
-    [data-testid="stToolbarActions"] > [data-testid="stToolbarActionButton"]:last-child button {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        padding: 4px !important;
-    }
-
-    /* ── Pencil hover tooltip with Codespaces link ── */
-    [data-testid="stToolbarActions"] > [data-testid="stToolbarActionButton"]:last-child {
-        position: relative !important;
-    }
-    [data-testid="stToolbarActions"] > [data-testid="stToolbarActionButton"]:last-child:hover::after {
-        content: "Edit with Codespaces";
-        position: absolute;
-        top: calc(100% + 6px);
-        right: 0;
-        white-space: nowrap;
-        font-size: 0.75rem;
-        font-weight: 500;
-        color: var(--bg);
-        background: var(--text);
-        padding: 4px 10px;
-        border-radius: 6px;
-        z-index: 9999;
-        pointer-events: none;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.18);
-        opacity: 0;
-        animation: tooltipFadeIn 0.15s ease forwards 0.3s;
-    }
-    @keyframes tooltipFadeIn {
-        to { opacity: 1; }
-    }
 
     /* NOTE — Platform limitation: the three-dot menu popup (Rerun, Clear
        cache, Print, Record screen, About) is rendered by Streamlit's
@@ -1509,10 +1464,104 @@ def _inject_theme_bridge(current_theme: str, url_had_theme: bool) -> None:
         components.html(html, height=0)
 
 
+def _inject_toolbar_customization() -> None:
+    """Hide the GitHub & Star toolbar buttons; enlarge the pencil and add tooltip.
+
+    Streamlit Community Cloud injects several action buttons into the
+    ``stToolbarActions`` container (Share, Star, GitHub/Fork, Edit/Pencil).
+    The buttons all share the same ``stToolbarActionButton`` data-testid,
+    so we cannot distinguish them with pure CSS. Instead we inject a tiny
+    JS snippet that inspects each button's ``title`` / ``aria-label`` /
+    visible text and hides the unwanted ones.
+
+    The script runs inside a zero-height ``st.html`` iframe and reaches
+    the parent document via ``window.parent.document`` (same-origin on
+    Streamlit Community Cloud). It retries a few times with increasing
+    delays to catch late-rendering toolbar elements.
+    """
+    codespaces_url = (
+        "https://share.streamlit.io/edit-with-codespaces"
+        "?owner=mrpouyaalavi"
+        "&repo=cifar-10-image-classification"
+        "&branch=main"
+        "&mainModule=app.py"
+    )
+    html = f"""
+<script>
+(function() {{
+  var CODESPACES_URL = {json.dumps(codespaces_url)};
+
+  function customize() {{
+    try {{
+      var doc = window.parent.document;
+      var wrappers = doc.querySelectorAll(
+        '[data-testid="stToolbarActionButton"]'
+      );
+      if (!wrappers.length) return;
+
+      wrappers.forEach(function(wrapper) {{
+        var btn = wrapper.querySelector("button") || wrapper;
+        var title  = (btn.getAttribute("title") || "").toLowerCase();
+        var aria   = (btn.getAttribute("aria-label") || "").toLowerCase();
+        var text   = (btn.textContent || "").toLowerCase();
+        var hint   = title + " " + aria + " " + text;
+
+        // ── Star / Favorite → hide ──
+        if (hint.includes("star") || hint.includes("favorite")) {{
+          wrapper.style.setProperty("display", "none", "important");
+          return;
+        }}
+
+        // ── GitHub / Fork / Source → hide ──
+        if (hint.includes("github") || hint.includes("source")
+            || hint.includes("fork")) {{
+          wrapper.style.setProperty("display", "none", "important");
+          return;
+        }}
+
+        // ── Edit / Pencil / Codespaces → keep, enlarge, add tooltip ──
+        if (hint.includes("edit") || hint.includes("codespace")
+            || hint.includes("pencil")) {{
+          btn.setAttribute("title",
+            "Edit with Codespaces\\n" + CODESPACES_URL);
+          var svg = wrapper.querySelector("svg");
+          if (svg) {{
+            svg.style.setProperty("width",  "20px", "important");
+            svg.style.setProperty("height", "20px", "important");
+          }}
+          var innerBtn = wrapper.querySelector("button");
+          if (innerBtn) {{
+            innerBtn.style.setProperty("display", "flex", "important");
+            innerBtn.style.setProperty("align-items", "center", "important");
+            innerBtn.style.setProperty("justify-content", "center", "important");
+            innerBtn.style.setProperty("padding", "4px", "important");
+          }}
+        }}
+      }});
+    }} catch (e) {{
+      // Cross-origin or DOM not ready — fail silently.
+    }}
+  }}
+
+  // Toolbar can render slightly after the component iframe. Retry a few
+  // times with increasing delays to be sure we catch it.
+  [200, 600, 1500, 3000].forEach(function(ms) {{
+    setTimeout(customize, ms);
+  }});
+}})();
+</script>
+"""
+    try:
+        st.html(html, unsafe_allow_javascript=True)  # type: ignore[call-arg]
+    except (AttributeError, TypeError):
+        components.html(html, height=0)
+
+
 # Apply the initial theme CSS before any widgets render so there's no flash.
 _current_theme, _url_had_theme = _resolve_theme_mode()
 st.markdown(_build_css(_current_theme), unsafe_allow_html=True)
 _inject_theme_bridge(_current_theme, _url_had_theme)
+_inject_toolbar_customization()
 
 
 # ============================================================================
