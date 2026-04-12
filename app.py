@@ -703,8 +703,10 @@ def _build_css(theme_mode: str) -> str:
     [data-testid="stMainMenuButton"] button,
     [data-testid="stToolbarActionButton"] button {
         color: var(--text-muted) !important;
-        border: 1px solid var(--border-soft) !important;
-        border-radius: 8px !important;
+        background: transparent !important;
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
         opacity: 1 !important;
         visibility: visible !important;
     }
