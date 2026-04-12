@@ -1476,20 +1476,46 @@ def _inject_toolbar_customization() -> None:
 (function() {{
   var CODESPACES_URL = {json.dumps(codespaces_url)};
 
+  function paintSvg(wrapper, btn, color) {{
+    if (!wrapper) return;
+
+    var svg = wrapper.querySelector("svg");
+
+    if (btn) {{
+      btn.style.setProperty("color", color, "important");
+      btn.style.setProperty("fill", color, "important");
+      btn.style.setProperty("stroke", color, "important");
+    }}
+
+    if (svg) {{
+      svg.style.setProperty("color", color, "important");
+      svg.style.setProperty("fill", color, "important");
+      svg.style.setProperty("stroke", color, "important");
+
+      svg.querySelectorAll("*").forEach(function(node) {{
+        if (node.hasAttribute("fill") && node.getAttribute("fill") !== "none") {{
+          node.style.setProperty("fill", color, "important");
+        }}
+        if (node.hasAttribute("stroke") && node.getAttribute("stroke") !== "none") {{
+          node.style.setProperty("stroke", color, "important");
+        }}
+        node.style.setProperty("color", color, "important");
+      }});
+    }}
+  }}
+
   function customize() {{
     try {{
       var doc = window.parent.document;
-      var wrappers = doc.querySelectorAll(
-        '[data-testid="stToolbarActionButton"]'
-      );
+      var wrappers = doc.querySelectorAll('[data-testid="stToolbarActionButton"]');
       if (!wrappers.length) return;
 
       wrappers.forEach(function(wrapper) {{
-        var btn = wrapper.querySelector("button") || wrapper;
-        var title  = (btn.getAttribute("title") || "").toLowerCase();
-        var aria   = (btn.getAttribute("aria-label") || "").toLowerCase();
-        var text   = (btn.textContent || "").toLowerCase();
-        var hint   = title + " " + aria + " " + text;
+        var btn = wrapper.querySelector("button, a") || wrapper;
+        var title = ((btn.getAttribute("title") || "") + "").toLowerCase();
+        var aria = ((btn.getAttribute("aria-label") || "") + "").toLowerCase();
+        var text = ((btn.textContent || "") + "").toLowerCase();
+        var hint = (title + " " + aria + " " + text).trim();
 
         // ── Star / Favorite → hide ──
         if (hint.includes("star") || hint.includes("favorite")) {{
@@ -1497,54 +1523,52 @@ def _inject_toolbar_customization() -> None:
           return;
         }}
 
-        // Helper: paint every SVG descendant a given colour
-        function paintSvg(el, color) {{
-          var svg = el.querySelector("svg");
-          if (svg) {{
-            svg.style.setProperty("color", color, "important");
-            svg.querySelectorAll("path, rect, circle, ellipse, polygon, polyline, line").forEach(function(p) {{
-              if (p.getAttribute("fill") !== "none") p.style.setProperty("fill", color, "important");
-              if (p.getAttribute("stroke") !== "none") p.style.setProperty("stroke", color, "important");
-            }});
-          }}
-          if (btn) btn.style.setProperty("color", color, "important");
-        }}
-
         // ── GitHub / Fork / Source → purple ──
-        if (hint.includes("github") || hint.includes("source")
-            || hint.includes("fork")) {{
-          paintSvg(wrapper, "#7c3aed");
+        if (
+          hint.includes("github") ||
+          hint.includes("source") ||
+          hint.includes("fork")
+        ) {{
+          paintSvg(wrapper, btn, "#7c3aed");
           return;
         }}
 
         // ── Edit / Pencil / Codespaces → light brown, enlarge, tooltip ──
-        if (hint.includes("edit") || hint.includes("codespace")
-            || hint.includes("pencil")) {{
-          paintSvg(wrapper, "#b8860b");
-          btn.setAttribute("title",
-            "Edit with Codespaces\\n" + CODESPACES_URL);
+        if (
+          hint.includes("edit") ||
+          hint.includes("codespace") ||
+          hint.includes("codespaces") ||
+          hint.includes("pencil")
+        ) {{
+          paintSvg(wrapper, btn, "#b8860b");
+
+          if (btn) {{
+            btn.setAttribute("title", "Edit with Codespaces\\n" + CODESPACES_URL);
+            btn.style.setProperty("display", "flex", "important");
+            btn.style.setProperty("align-items", "center", "important");
+            btn.style.setProperty("justify-content", "center", "important");
+            btn.style.setProperty("padding", "4px", "important");
+          }}
+
           var svg = wrapper.querySelector("svg");
           if (svg) {{
-            svg.style.setProperty("width",  "20px", "important");
+            svg.style.setProperty("width", "20px", "important");
             svg.style.setProperty("height", "20px", "important");
+            svg.style.setProperty("min-width", "20px", "important");
+            svg.style.setProperty("min-height", "20px", "important");
           }}
-          var innerBtn = wrapper.querySelector("button");
-          if (innerBtn) {{
-            innerBtn.style.setProperty("display", "flex", "important");
-            innerBtn.style.setProperty("align-items", "center", "important");
-            innerBtn.style.setProperty("justify-content", "center", "important");
-            innerBtn.style.setProperty("padding", "4px", "important");
-          }}
+
+          return;
         }}
       }});
     }} catch (e) {{
       // Cross-origin or DOM not ready — fail silently.
+      console.debug("Toolbar customization skipped:", e);
     }}
   }}
 
-  // Toolbar can render slightly after the component iframe. Retry a few
-  // times with increasing delays to be sure we catch it.
-  [200, 600, 1500, 3000].forEach(function(ms) {{
+  // Retry because Streamlit toolbar may render late
+  [200, 600, 1500, 3000, 5000].forEach(function(ms) {{
     setTimeout(customize, ms);
   }});
 }})();
