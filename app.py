@@ -1307,23 +1307,6 @@ def _build_css(theme_mode: str) -> str:
         color: var(--text) !important;
     }
 
-    /* ── Toolbar CSS-mask icon fix ──
-       Some Streamlit toolbar icons render via -webkit-mask-image +
-       background-color (the mask clips the bg to the icon shape).
-       Re-paint masked elements inside the toolbar — covers both
-       <span> and <div> wrappers that Streamlit may use. */
-    [data-testid="stHeader"] [data-testid*="Icon"],
-    [data-testid="stToolbar"] [data-testid*="Icon"],
-    [data-testid="stAppDeployButton"] [data-testid*="Icon"],
-    [data-testid="stMainMenuButton"] [data-testid*="Icon"],
-    [data-testid="stToolbarActionButton"] [data-testid*="Icon"],
-    [data-testid="stHeader"] [role="img"],
-    [data-testid="stToolbar"] [role="img"],
-    [data-testid="stAppDeployButton"] [role="img"],
-    [data-testid="stMainMenuButton"] [role="img"],
-    [data-testid="stToolbarActionButton"] [role="img"] {
-        background-color: var(--text-muted) !important;
-    }
     /* Hide genuinely empty toolbar action wrappers — prevents blank
        rounded boxes when Streamlit reserves a slot but populates no icon. */
     [data-testid="stToolbarActions"] > div:empty {
