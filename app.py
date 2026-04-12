@@ -1350,12 +1350,15 @@ def _build_css(theme_mode: str) -> str:
     [data-testid="stToolbar"] span[role="img"] {
         background-color: var(--text-muted) !important;
     }
-    /* Hide truly empty toolbar action wrappers that have no icon or
-       text content — prevents blank rounded boxes next to Share. */
-    [data-testid="stToolbarActions"] > div:empty,
-    [data-testid="stHeader"] button:not(:has(svg)):not(:has(span)):not(:has(img)) {
+    /* Hide genuinely empty toolbar action wrappers — prevents blank
+       rounded boxes when Streamlit reserves a slot but populates no icon. */
+    [data-testid="stToolbarActions"] > div:empty {
         display: none !important;
     }
+    /* NOTE — Platform limitation: the three-dot menu popup (Rerun, Clear
+       cache, Print, Record screen, About) is rendered by Streamlit's
+       BaseWeb layer and cannot be reliably themed from app-level CSS.
+       Its appearance may not match the app theme in all modes. */
 </style>
 """
     )
@@ -1670,14 +1673,13 @@ def _render_runtime_panel(available_names: list[str], device: torch.device) -> N
         "uses CPU because the host is a shared free-tier container."
     )
 
-    deployed = sum(1 for m in BENCHMARK_METRICS.values() if m["available"])
     st.sidebar.markdown(
-        f"**Checkpoints available**  {len(available_names)} / {deployed} deployed"
+        f"**Selectable models**  {len(available_names)} of {_TOTAL_TRAINED} architectures"
     )
-    st.sidebar.markdown(
-        f"**Trained architectures**  {_TOTAL_TRAINED} "
-        f"<span style='color:var(--text-dim);font-size:0.78rem;'>(benchmarked)</span>",
-        unsafe_allow_html=True,
+    st.sidebar.caption(
+        f"All {_TOTAL_TRAINED} architectures were trained and benchmarked; "
+        f"{len(available_names)} have checkpoints present for live inference. "
+        "See the Models tab for the full comparison."
     )
     st.sidebar.markdown(
         f"**Best accuracy**  "
@@ -1841,10 +1843,10 @@ def _go_to_demo() -> None:
     st.session_state["nav"] = NAV_LIVE_DEMO
 
 
-def render_overview_tab() -> None:
+def render_overview_tab(available_names: list[str]) -> None:
     best_key = best_model_key()
     best = BENCHMARK_METRICS[best_key]
-    deployed_count = sum(1 for m in BENCHMARK_METRICS.values() if m["available"])
+    deployed_count = len([k for k in available_names if k in BENCHMARK_METRICS])
 
     # Hero block — part 1: tag, headline, subhead. We close the <div class="hero">
     # wrapper at the end of part 3 so the three markdown blocks render as a
@@ -2079,13 +2081,14 @@ def render_prediction(
 
     # OOD caveat for user-uploaded images (no ground truth available)
     if true_label is None:
-        st.caption(
-            "⚠️ This model only knows **10 CIFAR-10 classes** "
-            f"({', '.join(CLASS_NAMES)}). "
+        st.warning(
+            "**Closed-set classifier** — this model only knows "
+            f"**10 CIFAR-10 classes** ({', '.join(CLASS_NAMES)}). "
             "If your image is not one of these, the prediction shows the "
             "**closest matching class**, not a correct identification. "
             "High confidence on out-of-distribution images is a known "
-            "limitation of softmax classifiers."
+            "limitation of softmax classifiers.",
+            icon="⚠️",
         )
 
     if true_label is not None:
@@ -2455,15 +2458,18 @@ def _render_pa_table(
     st.markdown(table_html, unsafe_allow_html=True)
 
 
-def render_models_tab() -> None:
-    deployed_count = sum(1 for m in BENCHMARK_METRICS.values() if m["available"])
+def render_models_tab(available_names: list[str]) -> None:
+    # Selectable count is derived from the filesystem check (available_names)
+    # rather than the static `available` flag in BENCHMARK_METRICS, so it
+    # accurately reflects what this deployment instance can actually load.
+    selectable_count = len([k for k in available_names if k in BENCHMARK_METRICS])
 
     st.markdown('<div class="section-title">Model comparison</div>', unsafe_allow_html=True)
     st.markdown(
         f'<p class="section-sub">{_TOTAL_TRAINED} architectures were trained and '
         'evaluated head-to-head on the full 10 000-image CIFAR-10 test set. '
-        f'{deployed_count} are shipped in the live demo — the rest are in the '
-        'table for context but their checkpoints are not deployed '
+        f'{selectable_count} are selectable in the live demo — the rest are in the '
+        'table for context but their checkpoints are not present in this deployment '
         '(file-size and cold-start constraints on the free hosting tier). '
         'Transfer learning dominates training-from-scratch at this dataset '
         'size, but at a latency cost.</p>',
@@ -2481,7 +2487,7 @@ def render_models_tab() -> None:
             "Latency (ms)": m["latency_ms"],
             "Throughput (FPS)": m["fps"],
             "Input": f"{m['input_size']}×{m['input_size']}",
-            "Deployed": "✓" if m["available"] else "—",
+            "Deployed": "✓" if key in available_names else "—",
         })
     df = pd.DataFrame(rows)
     _render_pa_table(
@@ -2506,8 +2512,11 @@ def render_models_tab() -> None:
     )
 
     # ── Try a deployed model ────────────────────────────────────
-    _deployed_keys = [k for k, v in BENCHMARK_METRICS.items() if v["available"]]
-    _not_deployed_keys = [k for k, v in BENCHMARK_METRICS.items() if not v["available"]]
+    # Dynamic: any model in both available_names (filesystem check) AND
+    # BENCHMARK_METRICS (has display info) gets a "Try" button. Models
+    # without checkpoints on disk are listed as non-selectable context.
+    _deployed_keys = [k for k in available_names if k in BENCHMARK_METRICS]
+    _not_deployed_keys = [k for k in BENCHMARK_METRICS if k not in available_names]
 
     st.markdown(
         '<div class="section-title" style="margin-top:2rem;">Try a model</div>',
@@ -3008,12 +3017,19 @@ def main() -> None:
     device = _get_device()
     available_names = _available_model_names()
 
-    # Restore navigation from URL query params (survives theme-triggered page
-    # reloads that destroy session_state). This must happen BEFORE the widget
-    # so the segmented_control picks up the restored value.
-    url_tab = st.query_params.get("tab")
-    if url_tab and url_tab in NAV_OPTIONS:
-        st.session_state["nav"] = url_tab
+    # Restore navigation from URL query params ONLY on fresh page loads (when
+    # _nav_restored is absent because session_state was destroyed by a full
+    # browser navigation — e.g. the theme bridge JS adding ?theme= to the
+    # URL).  On normal Streamlit reruns (widget clicks, st.rerun()), the
+    # segmented_control widget is the authoritative source: its on-change
+    # callback writes directly to st.session_state["nav"].  Unconditionally
+    # reading st.query_params here would OVERWRITE that value with the stale
+    # URL (which hasn't been synced yet) and lock the tabs on Overview.
+    if "_nav_restored" not in st.session_state:
+        st.session_state["_nav_restored"] = True
+        url_tab = st.query_params.get("tab")
+        if url_tab and url_tab in NAV_OPTIONS:
+            st.session_state["nav"] = url_tab
 
     # Initialize navigation state on first load. We do this BEFORE instantiating
     # the widget so the widget picks up the default from session_state, and so
@@ -3055,11 +3071,11 @@ def main() -> None:
         st.query_params["tab"] = active
 
     if active == NAV_OVERVIEW:
-        render_overview_tab()
+        render_overview_tab(available_names)
     elif active == NAV_LIVE_DEMO:
         render_live_demo_tab(available_names, device, settings)
     elif active == NAV_MODELS:
-        render_models_tab()
+        render_models_tab(available_names)
     elif active == NAV_ANALYSIS:
         render_analysis_tab()
     elif active == NAV_ABOUT:

@@ -36,8 +36,11 @@ PRETTY_NAMES: dict[str, str] = {
     "custom_cnn": "Custom CNN",
     "mobilenet":  "MobileNetV2",
     # Already-pretty keys map to themselves so callers can safely pass either
-    "Custom CNN":  "Custom CNN",
-    "MobileNetV2": "MobileNetV2",
+    "Custom CNN":      "Custom CNN",
+    "MobileNetV2":     "MobileNetV2",
+    "ResNet-18":       "ResNet-18",
+    "EfficientNet-B0": "EfficientNet-B0",
+    "ViT-Small":       "ViT-Small",
 }
 
 
@@ -105,6 +108,41 @@ def build_mobilenetv2(num_classes: int = 10) -> nn.Module:
     model.classifier = nn.Sequential(
         nn.Dropout(0.2),
         nn.Linear(model.last_channel, num_classes),
+    )
+    return model
+
+
+def build_resnet18(num_classes: int = 10) -> nn.Module:
+    """ResNet-18 with frozen ImageNet backbone and trainable FC head.
+
+    Architecture: standard torchvision ResNet-18 (11.2 M total params) with
+    every backbone parameter frozen. Only the final fully-connected layer
+    (512 × 10 + 10 = 5 130 trainable params) is replaced and trained.
+    """
+    from torchvision.models import resnet18, ResNet18_Weights
+
+    model = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
+    for p in model.parameters():
+        p.requires_grad = False
+    model.fc = nn.Linear(model.fc.in_features, num_classes)
+    return model
+
+
+def build_efficientnet_b0(num_classes: int = 10) -> nn.Module:
+    """EfficientNet-B0 with frozen ImageNet backbone and trainable classifier head.
+
+    Architecture: standard torchvision EfficientNet-B0 (4.0 M total params)
+    with every backbone parameter frozen. Only the classifier head
+    (Dropout + Linear 1280 × 10 = 12 810 trainable params) is replaced.
+    """
+    from torchvision.models import efficientnet_b0, EfficientNet_B0_Weights
+
+    model = efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1)
+    for p in model.parameters():
+        p.requires_grad = False
+    model.classifier = nn.Sequential(
+        nn.Dropout(0.2),
+        nn.Linear(model.classifier[1].in_features, num_classes),
     )
     return model
 
@@ -250,6 +288,16 @@ MODEL_REGISTRY: dict[str, dict] = {
     "MobileNetV2": {
         "builder": lambda: build_mobilenetv2(num_classes=10),
         "candidates": MN_CANDIDATES,
+        "needs_remap": False,
+    },
+    "ResNet-18": {
+        "builder": lambda: build_resnet18(num_classes=10),
+        "candidates": ["resnet-18_best.pth", "resnet18_best.pth"],
+        "needs_remap": False,
+    },
+    "EfficientNet-B0": {
+        "builder": lambda: build_efficientnet_b0(num_classes=10),
+        "candidates": ["efficientnet-b0_best.pth", "efficientnet_b0_best.pth"],
         "needs_remap": False,
     },
 }
@@ -463,8 +511,21 @@ def get_gradcam_target_layer(model: nn.Module, model_name: str) -> nn.Module:
         # Conv2dNormActivation exposes the conv as [0]
         return last_block[0] if hasattr(last_block, "__getitem__") else last_block
 
+    # ResNet-18: layer4[-1].conv2 is the last Conv2d (512 channels, 7×7
+    # spatial for 224×224 input). It sits before the BasicBlock's residual
+    # addition, so the backward hook fires cleanly.
+    if model_name == "ResNet-18":
+        return model.layer4[-1].conv2
+
+    # EfficientNet-B0: same Conv2dNormActivation pattern as MobileNetV2.
+    if model_name == "EfficientNet-B0":
+        last_block = model.features[-1]
+        return last_block[0] if hasattr(last_block, "__getitem__") else last_block
+
     # Fallback for any other architecture
-    return model.features[-1]
+    if hasattr(model, "features"):
+        return model.features[-1]
+    raise ValueError(f"No known Grad-CAM target layer for {model_name}")
 
 
 def compute_gradcam_overlay(
