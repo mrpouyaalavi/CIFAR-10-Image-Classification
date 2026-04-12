@@ -703,10 +703,22 @@ def _build_css(theme_mode: str) -> str:
     [data-testid="stMainMenuButton"] button,
     [data-testid="stToolbarActionButton"] button {
         color: var(--text-muted) !important;
-        border: 1px solid var(--border-soft) !important;
-        border-radius: 8px !important;
+        background: transparent !important;
+        background-color: transparent !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        outline: none !important;
         opacity: 1 !important;
         visibility: visible !important;
+    }
+    /* Clear backgrounds on inner divs inside toolbar buttons that
+       Streamlit/BaseWeb paints with a light surface in dark mode. */
+    [data-testid="stAppDeployButton"] button > div,
+    [data-testid="stMainMenuButton"] button > div,
+    [data-testid="stToolbarActionButton"] button > div {
+        background: transparent !important;
+        background-color: transparent !important;
     }
     [data-testid="stAppDeployButton"] button:hover,
     [data-testid="stMainMenuButton"] button:hover,
