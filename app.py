@@ -189,6 +189,8 @@ footer { display: none !important; }
 
 with gr.Blocks(
     title=f"{TITLE} — Pouya Alavi",
+    css=CSS,
+    theme=gr.themes.Soft(primary_hue="blue", secondary_hue="purple"),
 ) as demo:
 
     gr.Markdown(
@@ -334,7 +336,4 @@ with gr.Blocks(
 #  Launch
 # ============================================================================
 
-demo.launch(
-    css=CSS,
-    theme=gr.themes.Soft(primary_hue="blue", secondary_hue="purple"),
-)
+demo.launch()
