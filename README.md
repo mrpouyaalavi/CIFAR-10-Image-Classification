@@ -1,14 +1,27 @@
+---
+title: CIFAR-10 Image Classification
+emoji: 🧠
+colorFrom: blue
+colorTo: purple
+sdk: gradio
+sdk_version: "5.12.0"
+app_file: app.py
+pinned: false
+license: mit
+---
+
 <div align="center">
 
 <!-- Typing animation -->
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=700&size=20&duration=2800&pause=700&color=EE4C2C&center=true&vCenter=true&width=860&lines=CIFAR-10+Deep+Learning+Image+Classification;Custom+CNN+vs+Transfer+Learning+%E2%80%94+A+Comparative+Study;PyTorch+%C2%B7+Grad-CAM+%C2%B7+MobileNetV2+%C2%B7+Streamlit;5+Architectures+%C2%B7+86.91%25+Accuracy+%C2%B7+Full+ML+Pipeline)](https://readme-typing-svg.demolab.com)
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=700&size=20&duration=2800&pause=700&color=EE4C2C&center=true&vCenter=true&width=860&lines=CIFAR-10+Deep+Learning+Image+Classification;Custom+CNN+vs+Transfer+Learning+%E2%80%94+A+Comparative+Study;PyTorch+%C2%B7+Grad-CAM+%C2%B7+MobileNetV2+%C2%B7+Gradio;5+Architectures+%C2%B7+86.91%25+Accuracy+%C2%B7+Full+ML+Pipeline)](https://readme-typing-svg.demolab.com)
 
 <!-- Badges -->
 ![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.3+-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white)
-![Streamlit](https://img.shields.io/badge/Streamlit-Demo_App-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
+![Gradio](https://img.shields.io/badge/Gradio-Demo_App-F97316?style=for-the-badge&logo=gradio&logoColor=white)
+![Hugging Face](https://img.shields.io/badge/🤗_Hugging_Face-Spaces-FFD21E?style=for-the-badge)
 ![Jupyter](https://img.shields.io/badge/Jupyter-Notebook-F37626?style=for-the-badge&logo=jupyter&logoColor=white)
 
 </div>
@@ -21,9 +34,11 @@
 
 > **An end-to-end deep learning project that designs, trains, and evaluates multiple architectures on the CIFAR-10 benchmark, demonstrating the efficiency of transfer learning compared with a custom CNN baseline.**
 
-This project is a comprehensive, portfolio-grade machine learning study that goes beyond model training. It includes data augmentation pipelines (RandomCrop, CutOut, MixUp, CutMix), cosine annealing learning rate scheduling, progressive unfreezing, INT8 model quantisation, Grad-CAM interpretability visualisations, a CLI inference toolkit, and a Streamlit demo app — all documented in a structured Jupyter Notebook.
+This project is a comprehensive, portfolio-grade machine learning study that goes beyond model training. It includes data augmentation pipelines (RandomCrop, CutOut, MixUp, CutMix), cosine annealing learning rate scheduling, progressive unfreezing, INT8 model quantisation, Grad-CAM interpretability visualisations, a CLI inference toolkit, and a Gradio demo app deployed on Hugging Face Spaces — all documented in a structured Jupyter Notebook.
 
-**[📓 Explore the Notebook](cifar10%20image%20classification.ipynb)** &nbsp;·&nbsp; **[🚀 Live Demo](https://cifar10.pouyaalavi.dev)** &nbsp;·&nbsp; **[📊 Key Results](#-key-results--performance-benchmarks)**
+**[📓 Explore the Notebook](cifar10%20image%20classification.ipynb)** &nbsp;·&nbsp; **[🚀 Live Demo (Hugging Face)](https://huggingface.co/spaces/mrpouyaalavi/CIFAR-10-Image-Classification)** &nbsp;·&nbsp; **[📊 Key Results](#-key-results--performance-benchmarks)**
+
+> **Note:** The original Streamlit demo at [cifar10-pouyaalavi.streamlit.app](https://cifar10-pouyaalavi.streamlit.app/) now serves as a landing page that redirects to the new Hugging Face Space.
 
 <br/>
 
@@ -161,7 +176,7 @@ Both models consistently confuse visually similar classes — but MobileNetV2 ma
 ║  🔬  Grad-CAM interpretability — see what the model actually looks at        ║
 ║  ⚡  INT8 dynamic quantisation for deployment-ready performance               ║
 ║  📊  Confusion matrices, training curves, and efficiency benchmarks          ║
-║  🖥️  Streamlit demo app — interactive side-by-side model comparison          ║
+║  🖥️  Gradio demo on HF Spaces — interactive side-by-side model comparison    ║
 ║  🛠️  CLI inference tools — single image, batch, or CIFAR-10 test samples     ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
@@ -184,7 +199,7 @@ Both models consistently confuse visually similar classes — but MobileNetV2 ma
 | **Evaluation** | scikit-learn (classification reports, confusion matrices) |
 | **Visualization** | Matplotlib, Seaborn |
 | **Interpretability** | Grad-CAM (custom implementation with PyTorch hooks) |
-| **Demo App** | Streamlit |
+| **Demo App** | Gradio (Hugging Face Spaces) |
 | **Environment** | Jupyter Notebook, Python 3.11 |
 | **Hardware** | Auto-detected: CUDA / Apple Silicon MPS / CPU |
 
@@ -301,13 +316,18 @@ python gradcam.py --model both --num-images 6
 python gradcam.py --model both --image-index 0 42 100 --save results/gradcam/
 ```
 
-### 🖥️ Streamlit Demo App
+### 🖥️ Gradio Demo App
 
 ```bash
-streamlit run app.py
+# Run the Gradio demo locally
+python app.py
 ```
 
-Upload any image or sample from the CIFAR-10 test set for **interactive side-by-side model comparison** with confidence progress bars, top-k predictions, and device info.
+Upload any image or click an example from the CIFAR-10 test set for **interactive side-by-side model comparison** with confidence rankings and top-k predictions.
+
+The live demo is hosted on **[Hugging Face Spaces](https://huggingface.co/spaces/mrpouyaalavi/CIFAR-10-Image-Classification)**.
+
+> **Legacy Streamlit landing page:** The original Streamlit URL ([cifar10-pouyaalavi.streamlit.app](https://cifar10-pouyaalavi.streamlit.app/)) is preserved as a lightweight redirect page. To run it locally: `streamlit run streamlit_app.py`
 
 <br/>
 
@@ -320,27 +340,29 @@ Upload any image or sample from the CIFAR-10 test set for **interactive side-by-
 ```text
 CIFAR-10-Image-Classification/
 │
-├── cifar10 image classification.ipynb   # Main notebook — full 14-section ML pipeline
+├── app.py                                # Gradio demo (HF Spaces entry point)
+├── streamlit_app.py                      # Streamlit landing page (legacy URL)
+├── model_utils.py                        # Shared model architectures & inference
+├── benchmark_data.py                     # Canonical metrics (single source of truth)
 ├── predict.py                            # CLI inference — single / batch / directory
 ├── gradcam.py                            # Grad-CAM interpretability visualisations
-├── app.py                                # Streamlit demo — interactive classification
 │
-├── artifacts/
-│   └── run_config.json                   # Training hyperparameters & experiment config
-├── results/
-│   └── training_metadata.json            # Experiment results, metrics & training history
+├── cifar10 image classification.ipynb    # Main notebook — full 14-section ML pipeline
 │
-├── checkpoints/                          # Model checkpoints (auto-generated)
+├── checkpoints/                          # Model checkpoints
 │   ├── custom_cnn_best.pth
 │   ├── mobilenetv2_best.pth
 │   └── ...
-├── models/                               # Saved model weights (auto-generated)
-│   ├── custom_cnn_model.pth
-│   ├── mobilenet_model.pth
-│   └── ...
+├── results/                              # Training results & analysis
+│   └── training_metadata.json
+├── artifacts/
+│   └── run_config.json                   # Training hyperparameters
+├── examples/                             # Example images for Gradio demo (auto-generated)
 ├── data/                                 # CIFAR-10 dataset (auto-downloaded)
 │
-├── requirements.txt                      # Python dependencies
+├── requirements.txt                      # Gradio / HF Spaces dependencies
+├── requirements-streamlit.txt            # Streamlit landing page dependencies
+├── requirements-dev.txt                  # Dev dependencies (pytest)
 ├── LICENSE                               # MIT License
 └── .gitignore                            # Git ignore rules
 ```
@@ -396,13 +418,13 @@ Released under the **MIT License** — an OSI-approved, permissive open-source l
 > Status     : [●] ONLINE — open to grad & junior opportunities
 ```
 
-[![Live Demo](https://img.shields.io/badge/Live_Demo-cifar10.pouyaalavi.dev-8b5cf6?style=for-the-badge&logo=streamlit&logoColor=ffffff&labelColor=0f172a)](https://cifar10.pouyaalavi.dev)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Hugging_Face_Spaces-FFD21E?style=for-the-badge&logo=huggingface&logoColor=ffffff&labelColor=0f172a)](https://huggingface.co/spaces/mrpouyaalavi/CIFAR-10-Image-Classification)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-EE4C2C?style=for-the-badge&logo=linkedin&logoColor=ffffff&labelColor=0f172a)](https://www.linkedin.com/in/pouya-alavi/)
 [![GitHub](https://img.shields.io/badge/GitHub-Follow-F7931E?style=for-the-badge&logo=github&logoColor=ffffff&labelColor=0f172a)](https://github.com/mrpouyaalavi)
 [![Email](https://img.shields.io/badge/Email-Contact-f59e0b?style=for-the-badge&logo=gmail&logoColor=09090b&labelColor=0f172a)](mailto:pouya@pouyaalavi.dev)
 
 <br/>
 
-**Built with PyTorch** · Designed for Learning, Research & Demonstration
+**Built with PyTorch & Gradio** · Deployed on Hugging Face Spaces · Designed for Learning, Research & Demonstration
 
 </div>
