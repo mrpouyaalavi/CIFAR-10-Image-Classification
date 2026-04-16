@@ -1,9 +1,7 @@
-# ── Runtime dependencies for the Gradio app on Hugging Face Spaces ──────────
-# CPU-only PyTorch index keeps the image small (~200 MB vs ~2 GB CUDA).
-
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-gradio>=5.0.0,<6.0.0
+gradio==5.9.1
+pydantic==2.10.6
 torch>=2.1.0
 torchvision>=0.16.0
 numpy>=1.24.0,<3.0.0
