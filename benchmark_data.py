@@ -108,7 +108,7 @@ BENCHMARK_METRICS: dict[str, ModelMetrics] = {
         "input_size": 224,
         "normalization": "imagenet",
         "strategy": "Transfer learning (frozen backbone)",
-        "available": False,
+        "available": True,
         "color": "#f472b6",  # pink
     },
     "EfficientNet-B0": {

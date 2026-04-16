@@ -68,13 +68,13 @@ The results have direct implications for:
 
 <div align="center">
 
-| Metric | Custom CNN | MobileNetV2 | Winner |
-|:-------|:----------:|:-----------:|:------:|
-| **Test Accuracy** | 48.40% | **86.91%** | 🏆 MobileNetV2 |
-| **Trainable Params** | 2,462,282 | **12,810** | 🏆 MobileNetV2 |
-| **Model Size** | 9.42 MB | **8.76 MB** | 🏆 MobileNetV2 |
-| **CPU Latency (batch 1)** | **1.38 ms** | 17.22 ms | 🏆 Custom CNN |
-| **Throughput** | **~724 FPS** | ~58 FPS | 🏆 Custom CNN |
+| Metric | Custom CNN | MobileNetV2 | ResNet-18 | Winner |
+|:-------|:----------:|:-----------:|:---------:|:------:|
+| **Test Accuracy** | 48.40% | **86.91%** | 82.10% | 🏆 MobileNetV2 |
+| **Trainable Params** | 2,462,282 | 12,810 | **5,130** | 🏆 ResNet-18 |
+| **Model Size** | **9.42 MB** | 8.76 MB | 42.73 MB | 🏆 MobileNetV2 |
+| **CPU Latency (batch 1)** | **1.38 ms** | 17.22 ms | 9.80 ms | 🏆 Custom CNN |
+| **Throughput** | **~724 FPS** | ~58 FPS | ~102 FPS | 🏆 Custom CNN |
 
 </div>
 
@@ -134,7 +134,17 @@ Pretrained MobileNetV2 (ImageNet — 1.2M images, 1000 classes — FROZEN)
   └── Classifier Head: Dropout(0.2) → Linear(1280 → 10)   ◀ Only trainable layer
 ```
 
-**Strategy:** Freeze the entire feature extraction backbone (2.2M params) and train only a lightweight classifier head (12,810 params). Depthwise separable convolutions reduce computational cost by ~8–9× compared to standard convolutions, making them practical for edge deployment.
+**Strategy:** Freeze the entire feature extraction backbone (2.2M params) and train only a lightweight classifier head (12,810 params). Depthwise separable convolutions reduce computational cost by ~8-9x compared to standard convolutions, making them practical for edge deployment.
+
+### ResNet-18 — Transfer Learning (Frozen ImageNet Backbone)
+
+```text
+Pretrained ResNet-18 (ImageNet — 1.2M images, 1000 classes — FROZEN)
+  │
+  └── FC Head: Linear(512 → 10)   ◀ Only trainable layer (5,130 params)
+```
+
+**Strategy:** Standard ResNet-18 (11.2M total params) with every backbone parameter frozen. Only the final fully-connected layer is replaced and trained. Achieves 82.10% accuracy with the fewest trainable parameters of any deployed model, demonstrating that even a simple linear probe on top of strong pretrained features is highly effective.
 
 <br/>
 
@@ -170,7 +180,7 @@ Both models consistently confuse visually similar classes — but MobileNetV2 ma
 
 ```text
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  🧠  5 architectures benchmarked in notebook (CLI tools: CNN & MobileNetV2)  ║
+║  🧠  5 architectures benchmarked in notebook (3 deployed in live demo)       ║
 ║  📈  Full training pipeline with cosine annealing LR & progressive unfreezing║
 ║  🎲  Advanced augmentation: RandomCrop, CutOut, MixUp, CutMix                ║
 ║  🔬  Grad-CAM interpretability — see what the model actually looks at        ║
@@ -367,7 +377,7 @@ CIFAR-10-Image-Classification/
 └── .gitignore                            # Git ignore rules
 ```
 
-> Model weights (`.pth`), datasets (`data/`), and checkpoints (`checkpoints/`) are excluded via `.gitignore` and regenerated automatically when running the notebook.
+> Model weights are hosted on the [Hugging Face Hub](https://huggingface.co/mrpouyaalavi/cifar10-models) and downloaded automatically at runtime. Datasets (`data/`) are fetched via torchvision on first run.
 
 <br/>
 

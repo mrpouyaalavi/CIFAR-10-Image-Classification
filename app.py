@@ -2,9 +2,9 @@
 CIFAR-10 Image Classification — Gradio Demo (Hugging Face Spaces)
 ==================================================================
 
-A polished, portfolio-ready Gradio app that showcases a comparative
-deep-learning study on CIFAR-10: Custom CNN (trained from scratch)
-vs MobileNetV2 (transfer learning with frozen ImageNet backbone).
+A polished, portfolio-ready Gradio app comparing three CNN architectures
+on CIFAR-10: Custom CNN (trained from scratch), MobileNetV2 and ResNet-18
+(transfer learning with frozen ImageNet backbones).
 
 Deployed on Hugging Face Spaces.  The original Streamlit app remains
 live at https://cifar10-pouyaalavi.streamlit.app/ as a landing page.
@@ -41,7 +41,6 @@ from benchmark_data import (
 
 DEVICE = select_device(verbose=True)
 
-# Cache loaded models so we only pay the cost once per architecture.
 _model_cache: dict[str, torch.nn.Module] = {}
 
 
@@ -51,18 +50,19 @@ def _get_model(name: str) -> torch.nn.Module:
     return _model_cache[name]
 
 
-# Pre-load available model names at startup.
 AVAILABLE_MODELS = list_available_models()
+
+# The three spec-required models, in display order.
+DEPLOYED_MODELS = [m for m in ["Custom CNN", "MobileNetV2", "ResNet-18"] if m in AVAILABLE_MODELS]
 
 
 # ============================================================================
-#  Example images — pull a few from the CIFAR-10 test set
+#  Example images
 # ============================================================================
 
 def _prepare_examples(n: int = 6) -> list[str]:
-    """Save a handful of CIFAR-10 test images as PNGs and return their paths."""
+    """Save CIFAR-10 test images as PNGs and return their paths."""
     examples_dir = os.path.join(os.path.dirname(__file__), "examples")
-    # If already prepared, just return existing files.
     if os.path.isdir(examples_dir) and len(os.listdir(examples_dir)) >= n:
         paths = sorted(
             os.path.join(examples_dir, f)
@@ -72,7 +72,6 @@ def _prepare_examples(n: int = 6) -> list[str]:
         return paths[:n]
 
     os.makedirs(examples_dir, exist_ok=True)
-
     try:
         import torchvision
         import torchvision.transforms as transforms
@@ -81,7 +80,6 @@ def _prepare_examples(n: int = 6) -> list[str]:
             root="./data", train=False, download=True,
             transform=transforms.ToTensor(),
         )
-        # Pick one image per class for variety.
         seen_classes: set[int] = set()
         saved: list[str] = []
         for img_tensor, label in dataset:
@@ -89,7 +87,6 @@ def _prepare_examples(n: int = 6) -> list[str]:
                 continue
             seen_classes.add(label)
             pil = transforms.ToPILImage()(img_tensor)
-            # Upscale from 32x32 so examples look decent in the UI.
             pil = pil.resize((128, 128), Image.NEAREST)
             fname = f"{CLASS_NAMES[label]}.png"
             path = os.path.join(examples_dir, fname)
@@ -110,49 +107,38 @@ EXAMPLE_IMAGES = _prepare_examples()
 # ============================================================================
 
 def classify(image: Image.Image | None, model_name: str) -> dict[str, float]:
-    """Run inference on a single image using the selected model.
-
-    Returns a dict mapping class names to confidence percentages,
-    which Gradio's gr.Label component renders as a leaderboard.
-    """
+    """Run inference on a single image with the selected model."""
     if image is None:
         return {}
-
     image = image.convert("RGB")
     model = _get_model(model_name)
     results = predict(model, image, model_name, DEVICE, top_k=10)
-    # Gradio Label expects {label: confidence_fraction}
     return {cls: round(conf / 100.0, 4) for cls, conf in results}
 
 
-def compare_models(image: Image.Image | None) -> tuple[dict, dict]:
-    """Run inference with all available models for side-by-side comparison."""
+def compare_all_models(image: Image.Image | None) -> tuple[dict, ...]:
+    """Run inference with all deployed models for side-by-side comparison."""
+    empty = ({},) * len(DEPLOYED_MODELS)
     if image is None:
-        return {}, {}
-
+        return empty
     image = image.convert("RGB")
     outputs = []
-    for name in AVAILABLE_MODELS[:2]:  # Custom CNN and MobileNetV2
+    for name in DEPLOYED_MODELS:
         model = _get_model(name)
         results = predict(model, image, name, DEVICE, top_k=10)
         outputs.append({cls: round(conf / 100.0, 4) for cls, conf in results})
-
-    # Pad if fewer than 2 models available.
-    while len(outputs) < 2:
-        outputs.append({})
-
-    return outputs[0], outputs[1]
+    return tuple(outputs)
 
 
 # ============================================================================
-#  Model Comparison Table (Markdown)
+#  Markdown Helpers
 # ============================================================================
 
 def _build_comparison_md() -> str:
-    """Build a Markdown table comparing all models in the benchmark."""
+    """Build a Markdown table comparing all benchmark models."""
     rows = []
-    for key, m in BENCHMARK_METRICS.items():
-        badge = "**deployed**" if m["available"] else "study only"
+    for _key, m in BENCHMARK_METRICS.items():
+        badge = "deployed" if m["available"] else "study only"
         rows.append(
             f"| {m['display_name']} | {m['test_accuracy']:.2f}% "
             f"| {m['trainable_params']:,} | {m['total_params']:,} "
@@ -190,7 +176,7 @@ def _build_confusion_pairs_md() -> str:
 TITLE = "CIFAR-10 Image Classification"
 DESCRIPTION = (
     "A comparative deep-learning study: **Custom CNN** (trained from scratch) "
-    "vs **MobileNetV2** (transfer learning with frozen ImageNet backbone). "
+    "vs **MobileNetV2** and **ResNet-18** (transfer learning with frozen ImageNet backbones). "
     "Upload an image or click an example below to classify it into one of 10 categories: "
     "airplane, automobile, bird, cat, deer, dog, frog, horse, ship, truck."
 )
@@ -204,21 +190,17 @@ footer { display: none !important; }
 with gr.Blocks(
     title=f"{TITLE} — Pouya Alavi",
     css=CSS,
-    theme=gr.themes.Soft(
-        primary_hue="blue",
-        secondary_hue="purple",
-    ),
+    theme=gr.themes.Soft(primary_hue="blue", secondary_hue="purple"),
 ) as demo:
 
-    # ── Header ──────────────────────────────────────────────────────
     gr.Markdown(
-        f"<h1 class='main-title'>🧠 {TITLE}</h1>\n"
+        f"<h1 class='main-title'>{TITLE}</h1>\n"
         f"<p class='subtitle'>{DESCRIPTION}</p>"
     )
 
     with gr.Tabs():
         # ── Tab 1: Live Demo ────────────────────────────────────────
-        with gr.TabItem("🔬 Live Demo"):
+        with gr.TabItem("Live Demo"):
             gr.Markdown("### Single-Model Prediction")
             with gr.Row():
                 with gr.Column(scale=1):
@@ -246,7 +228,6 @@ with gr.Blocks(
                 outputs=label_output,
             )
 
-            # Examples
             if EXAMPLE_IMAGES:
                 gr.Markdown("### Example Images")
                 gr.Examples(
@@ -255,34 +236,31 @@ with gr.Blocks(
                     label="Click an example to load it",
                 )
 
-            # ── Side-by-side comparison ─────────────────────────────
+            # ── All-model comparison ────────────────────────────────
             gr.Markdown("---")
+            model_names_str = ", ".join(DEPLOYED_MODELS[:-1]) + f" and {DEPLOYED_MODELS[-1]}" if len(DEPLOYED_MODELS) > 1 else (DEPLOYED_MODELS[0] if DEPLOYED_MODELS else "")
             gr.Markdown(
-                "### Head-to-Head Comparison\n"
-                "Upload an image above and click **Compare Both Models** to see "
-                "how Custom CNN and MobileNetV2 differ on the same input."
+                f"### Compare All Models\n"
+                f"Upload an image above and click **Compare All Models** to see "
+                f"how {model_names_str} differ on the same input."
             )
-            compare_btn = gr.Button(
-                "Compare Both Models", variant="secondary",
-            )
+            compare_btn = gr.Button("Compare All Models", variant="secondary")
+
+            # Create one Label output per deployed model.
+            compare_labels = []
             with gr.Row():
-                label_cnn = gr.Label(
-                    num_top_classes=5,
-                    label=AVAILABLE_MODELS[0] if len(AVAILABLE_MODELS) > 0 else "Model 1",
-                )
-                label_mobile = gr.Label(
-                    num_top_classes=5,
-                    label=AVAILABLE_MODELS[1] if len(AVAILABLE_MODELS) > 1 else "Model 2",
-                )
+                for name in DEPLOYED_MODELS:
+                    lbl = gr.Label(num_top_classes=5, label=name)
+                    compare_labels.append(lbl)
 
             compare_btn.click(
-                fn=compare_models,
+                fn=compare_all_models,
                 inputs=img_input,
-                outputs=[label_cnn, label_mobile],
+                outputs=compare_labels,
             )
 
         # ── Tab 2: Model Comparison ─────────────────────────────────
-        with gr.TabItem("📊 Model Comparison"):
+        with gr.TabItem("Model Comparison"):
             gr.Markdown("### Architecture Benchmark")
             gr.Markdown(
                 "All models were trained with identical hyperparameters "
@@ -297,6 +275,8 @@ with gr.Blocks(
             gr.Markdown(
                 "- **MobileNetV2** achieves **86.91%** accuracy with only "
                 "**12,810 trainable parameters** — thanks to a frozen ImageNet backbone.\n"
+                "- **ResNet-18** reaches **82.10%** accuracy with just **5,130 trainable "
+                "parameters** — the fewest of any deployed model.\n"
                 "- **Custom CNN** reaches **48.40%** despite training **2.46M parameters** "
                 "from scratch — demonstrating the efficiency gap.\n"
                 "- Transfer learning delivers **+38.5 percentage points** higher accuracy "
@@ -312,7 +292,7 @@ with gr.Blocks(
             gr.Markdown(_build_confusion_pairs_md())
 
         # ── Tab 3: About ────────────────────────────────────────────
-        with gr.TabItem("ℹ️ About"):
+        with gr.TabItem("About"):
             gr.Markdown(
                 "## About This Project\n\n"
                 "This is an end-to-end deep learning project that designs, trains, "
@@ -321,22 +301,25 @@ with gr.Blocks(
                 "> *How much does a pretrained backbone actually help compared to "
                 "training from scratch — when both models share the same training budget?*\n\n"
                 "### Dataset\n"
-                "**CIFAR-10** — 60,000 32×32 RGB images across 10 classes: "
+                "**CIFAR-10** — 60,000 32x32 RGB images across 10 classes: "
                 "airplane, automobile, bird, cat, deer, dog, frog, horse, ship, truck.\n\n"
                 "### Training Pipeline\n"
                 "- **Augmentation:** RandomCrop, HorizontalFlip, CutOut, MixUp, CutMix\n"
                 "- **Optimizer:** Adam (lr=0.001, weight_decay=0.0001)\n"
                 "- **Scheduler:** CosineAnnealingLR\n"
                 "- **Loss:** CrossEntropyLoss\n"
-                "- **Epochs:** 15 (both models, identical budget)\n\n"
-                "### Architectures\n"
-                "| Architecture | Approach | Trainable Params |\n"
-                "|-------------|----------|------------------|\n"
-                "| Custom CNN | 4-block CNN from scratch | 2,462,282 |\n"
-                "| MobileNetV2 | Frozen ImageNet backbone + linear head | 12,810 |\n"
-                "| ResNet-18 | Frozen ImageNet backbone + FC head | 5,130 |\n"
-                "| EfficientNet-B0 | Frozen ImageNet backbone + classifier | 12,810 |\n"
-                "| ViT-Small | Vision Transformer from scratch | 4,756,746 |\n\n"
+                "- **Epochs:** 15 (all models, identical budget)\n\n"
+                "### Deployed Architectures\n"
+                "| Architecture | Approach | Trainable Params | Accuracy |\n"
+                "|-------------|----------|------------------|----------|\n"
+                "| Custom CNN | 4-block CNN from scratch | 2,462,282 | 48.40% |\n"
+                "| MobileNetV2 | Frozen ImageNet backbone + linear head | 12,810 | 86.91% |\n"
+                "| ResNet-18 | Frozen ImageNet backbone + FC head | 5,130 | 82.10% |\n\n"
+                "### Additional Architectures (studied in notebook)\n"
+                "| Architecture | Approach | Trainable Params | Accuracy |\n"
+                "|-------------|----------|------------------|----------|\n"
+                "| EfficientNet-B0 | Frozen ImageNet backbone + classifier | 12,810 | 83.75% |\n"
+                "| ViT-Small | Vision Transformer from scratch | 4,756,746 | 62.30% |\n\n"
                 "### Links\n"
                 "- **GitHub:** [mrpouyaalavi/CIFAR-10-Image-Classification]"
                 "(https://github.com/mrpouyaalavi/CIFAR-10-Image-Classification)\n"
@@ -352,8 +335,6 @@ with gr.Blocks(
 # ============================================================================
 #  Launch
 # ============================================================================
-# Hugging Face Spaces will call this file directly. The `share=False`
-# default is correct for Spaces (the platform handles the public URL).
 
 if __name__ == "__main__":
     demo.launch()

@@ -134,8 +134,6 @@ st.markdown(
 
 # ── Landing Page Content ────────────────────────────────────────────────────
 
-# TODO: Replace this placeholder with the actual Hugging Face Space URL
-# once the Space is created and deployed.
 HF_SPACE_URL = "https://huggingface.co/spaces/mrpouyaalavi/CIFAR-10-Image-Classification"
 
 st.markdown(
@@ -144,7 +142,7 @@ st.markdown(
 
         <h1>🧠 CIFAR-10 Image Classification</h1>
         <p class="tagline">
-            Custom CNN vs Transfer Learning — A Comparative Deep Learning Study
+            Custom CNN vs MobileNetV2 vs ResNet-18 — A Deep Learning Comparison
         </p>
 
         <div class="metrics-row">
@@ -153,8 +151,8 @@ st.markdown(
                 <div class="label">Best Accuracy (MobileNetV2)</div>
             </div>
             <div class="metric-box">
-                <div class="value">5</div>
-                <div class="label">Architectures Studied</div>
+                <div class="value">3</div>
+                <div class="label">Models Deployed</div>
             </div>
             <div class="metric-box">
                 <div class="value">192&times;</div>
@@ -167,7 +165,7 @@ st.markdown(
             <p>
                 The interactive demo is now hosted on
                 <strong>Hugging Face Spaces</strong> with a faster Gradio interface,
-                side-by-side model comparison, and example images.
+                three-model comparison, and example images.
             </p>
             <a class="cta-button" href="{HF_SPACE_URL}" target="_blank">
                 Open Live Demo &rarr;
