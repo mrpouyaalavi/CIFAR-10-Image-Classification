@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-APP_PATH = Path(__file__).resolve().parent.parent / "app.py"
+APP_PATH = Path(__file__).resolve().parent.parent / "streamlit_app.py"
 
 pytest.importorskip("streamlit.testing.v1")
 

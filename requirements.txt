@@ -1,14 +1,10 @@
-# ── Runtime dependencies for the Streamlit portfolio app ───────────────────
-# Kept minimal to fit comfortably under Streamlit Community Cloud's
-# cold-start budget. The CPU-only PyTorch index is specified explicitly
-# so pip pulls the ~200 MB CPU wheel instead of the ~2 GB CUDA bundle.
+# ── Runtime dependencies for the Gradio app on Hugging Face Spaces ──────────
+# CPU-only PyTorch index keeps the image small (~200 MB vs ~2 GB CUDA).
 
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-streamlit>=1.32.0
+gradio>=4.0.0
 torch>=2.1.0
 torchvision>=0.16.0
 numpy>=1.24.0,<3.0.0
-pandas>=2.0.0
 Pillow>=10.0.0
-matplotlib>=3.7.0
