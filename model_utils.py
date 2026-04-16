@@ -261,44 +261,74 @@ MN_CANDIDATES = [
 ]
 
 
+# ── Hugging Face Hub integration ─────────────────────────────────────────
+#
+# Model weights are stored in a separate HF model repository to keep the
+# Space repo lightweight (code only, no binaries).  On first boot, weights
+# are downloaded from the Hub and cached.  Subsequent boots use the cache.
+#
+# Repository: mrpouyaalavi/cifar10-models
+# Files:      custom_cnn_best.pth, mobilenetv2_best.pth, resnet-18_best.pth
+
+HF_MODEL_REPO = "mrpouyaalavi/cifar10-models"
+
+# Maps each checkpoint filename to its filename in the HF model repo.
+HF_CHECKPOINT_FILES: dict[str, str] = {
+    "custom_cnn_best.pth": "custom_cnn_best.pth",
+    "mobilenetv2_best.pth": "mobilenetv2_best.pth",
+    "resnet-18_best.pth": "resnet-18_best.pth",
+}
+
+
+def _download_from_hub(filename: str) -> str | None:
+    """Download a checkpoint from the HF model repo.  Returns local path or None."""
+    if filename not in HF_CHECKPOINT_FILES:
+        return None
+    try:
+        from huggingface_hub import hf_hub_download
+        path = hf_hub_download(
+            repo_id=HF_MODEL_REPO,
+            filename=HF_CHECKPOINT_FILES[filename],
+        )
+        return path
+    except Exception as exc:
+        print(f"[cifar10] Hub download failed for {filename}: {exc}", flush=True)
+        return None
+
+
 # ── Model registry ─────────────────────────────────────────────────────────
 #
 # Single source of truth for "which architectures this app can load, and how".
 # Each entry has:
-#   builder        - zero-arg callable that returns a fresh nn.Module instance
-#   candidates     - ordered list of checkpoint filenames to probe on disk
-#   needs_remap    - whether to run _remap_legacy_keys() on the state dict
-#                    before loading (only the Custom CNN had an older format)
-#
-# Why a registry: the original load_models() hard-coded two nested loops — one
-# per architecture. Adding a third model required copy-pasting a whole block
-# and risked drift between eager and lazy loading paths. With the registry,
-# `list_available_models()` and `load_model_by_name()` both iterate the same
-# structure, and adding ResNet/EfficientNet/ViT becomes a ~5-line addition
-# (build function + filename candidates) — *if* the checkpoints are actually
-# shipped in the deployed repo. The current 2-model default keeps cold-start
-# under the free Streamlit Community Cloud budget.
+#   builder      - zero-arg callable that returns a fresh nn.Module instance
+#   candidates   - ordered list of checkpoint filenames to probe on disk
+#   needs_remap  - whether to run _remap_legacy_keys() on the state dict
+#   hub_file     - primary checkpoint to download from HF Hub if not local
 
 MODEL_REGISTRY: dict[str, dict] = {
     "Custom CNN": {
         "builder": lambda: CustomCNN(num_classes=10),
         "candidates": CNN_CANDIDATES,
         "needs_remap": True,
+        "hub_file": "custom_cnn_best.pth",
     },
     "MobileNetV2": {
         "builder": lambda: build_mobilenetv2(num_classes=10),
         "candidates": MN_CANDIDATES,
         "needs_remap": False,
+        "hub_file": "mobilenetv2_best.pth",
     },
     "ResNet-18": {
         "builder": lambda: build_resnet18(num_classes=10),
         "candidates": ["resnet-18_best.pth", "resnet18_best.pth"],
         "needs_remap": False,
+        "hub_file": "resnet-18_best.pth",
     },
     "EfficientNet-B0": {
         "builder": lambda: build_efficientnet_b0(num_classes=10),
         "candidates": ["efficientnet-b0_best.pth", "efficientnet_b0_best.pth"],
         "needs_remap": False,
+        "hub_file": "efficientnet-b0_best.pth",
     },
 }
 
@@ -313,44 +343,46 @@ def _find_checkpoint(candidates: list[str]) -> str | None:
     return None
 
 
-def list_available_models() -> list[str]:
-    """Return the display names of every registry model whose checkpoint exists.
+def _resolve_checkpoint(info: dict) -> str | None:
+    """Find a checkpoint locally, or download from HF Hub as fallback."""
+    path = _find_checkpoint(info["candidates"])
+    if path is not None:
+        return path
+    hub_file = info.get("hub_file")
+    if hub_file:
+        return _download_from_hub(hub_file)
+    return None
 
-    This is a cheap filesystem-only check — it does NOT instantiate or load any
-    architecture. Safe to call at app boot and cache with `st.cache_resource`
-    so that cold start is bounded by the first *selected* model, not all of
-    them. If you add a new architecture to MODEL_REGISTRY but forget to ship
-    its .pth file, it simply won't appear in the returned list.
+
+def list_available_models() -> list[str]:
+    """Return display names of models whose checkpoint can be resolved.
+
+    Checks local disk first, then HF Hub.  On HF Spaces the Hub download
+    is essentially instant (same data centre), so this stays fast.
     """
     return [
         name
         for name, info in MODEL_REGISTRY.items()
-        if _find_checkpoint(info["candidates"]) is not None
+        if _resolve_checkpoint(info) is not None
     ]
 
 
 def load_model_by_name(name: str, device: torch.device) -> nn.Module:
-    """Instantiate, load weights for, and switch a single model to inference mode.
+    """Instantiate, load weights, and return a model in inference mode.
 
-    Raises
-    ------
-    KeyError
-        The name is not in MODEL_REGISTRY.
-    FileNotFoundError
-        No candidate checkpoint could be found on disk.
-    RuntimeError
-        The checkpoint exists but doesn't match the architecture (re-raised
-        from torch's load_state_dict so callers can surface a helpful error).
+    Checkpoints are resolved in order:
+      1. Local filesystem  (checkpoints/, models/, ./)
+      2. Hugging Face Hub  (cached after first fetch)
     """
     if name not in MODEL_REGISTRY:
-        raise KeyError(f"Unknown model '{name}'. Registered: {list(MODEL_REGISTRY)}")
+        raise KeyError(f"Unknown model '{name}'.  Registered: {list(MODEL_REGISTRY)}")
 
     info = MODEL_REGISTRY[name]
-    path = _find_checkpoint(info["candidates"])
+    path = _resolve_checkpoint(info)
     if path is None:
         raise FileNotFoundError(
-            f"No checkpoint found for {name} in {SEARCH_DIRS}. "
-            f"Tried: {info['candidates']}"
+            f"No checkpoint found for {name} (local dirs: {SEARCH_DIRS}, "
+            f"Hub repo: {HF_MODEL_REPO}).  Tried: {info['candidates']}"
         )
 
     model = info["builder"]()
@@ -364,13 +396,7 @@ def load_model_by_name(name: str, device: torch.device) -> nn.Module:
 
 
 def load_models(device: torch.device) -> dict[str, nn.Module]:
-    """Load every available model at once. Kept for backward compatibility.
-
-    The Streamlit app uses the lazy `load_model_by_name()` path instead so
-    cold-start scales with the *selected* model, not the sum of all of them.
-    This one-shot variant is still imported by predict.py / gradcam.py / the
-    notebook — they rely on getting a fully populated `{name: model}` dict.
-    """
+    """Load every available model at once.  Kept for backward compatibility."""
     return {
         name: load_model_by_name(name, device)
         for name in list_available_models()
