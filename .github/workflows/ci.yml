@@ -27,7 +27,7 @@ jobs:
       fail-fast: false
       matrix:
         # Match the runtime.txt target (3.11) plus one newer Python so we
-        # notice torchvision / streamlit API drift early.
+        # notice torchvision / gradio API drift early.
         python-version: ["3.11", "3.12"]
 
     steps:
@@ -56,9 +56,6 @@ jobs:
           # Matplotlib's default backend tries to open a display which
           # GitHub Actions' Ubuntu runners don't have. Agg is headless.
           MPLBACKEND: Agg
-          # Opt out of Streamlit's first-run welcome dialog so AppTest
-          # renders cleanly in the CI environment.
-          STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
         run: pytest -v
 
   lint:

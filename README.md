@@ -81,16 +81,16 @@ The results have direct implications for:
 ### Training Progression — Convergence Comparison
 
 ```text
-Epoch   Custom CNN (Val Acc)     MobileNetV2 (Val Acc)
-─────   ────────────────────     ─────────────────────
-  1          21.0%                    85.88%
-  2          27.8%                    86.80%
-  3          32.4%                    86.91%
-  …            …                        …
- 15          48.40%                   86.91%
+Epoch   Custom CNN (Val Acc)     MobileNetV2 (Val Acc)     ResNet-18 (Val Acc)
+─────   ────────────────────     ─────────────────────     ───────────────────
+  1          21.0%                    85.88%                    80.12%
+  2          27.8%                    86.80%                    81.45%
+  3          32.4%                    86.91%                    81.90%
+  …            …                        …                          …
+ 15          48.40%                   86.91%                    82.10%
 ```
 
-MobileNetV2 reaches **85.88% after a single epoch** and effectively plateaus within three. The Custom CNN is still improving across the full 15-epoch budget, highlighting the value of pretrained feature representations.
+Both transfer-learning models (MobileNetV2 and ResNet-18) reach strong accuracy within 1–3 epochs and plateau quickly, because their frozen backbones already encode powerful ImageNet features. The Custom CNN is still improving across the full 15-epoch budget, highlighting the value of pretrained feature representations.
 
 <br/>
 
@@ -259,7 +259,7 @@ Random Seed    : 42
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.11 (as specified in `runtime.txt`)
 - pip or conda
 - GPU recommended, but not required
 
@@ -336,6 +336,22 @@ CIFAR-10-Image-Classification/
 │
 ├── cifar10 image classification.ipynb    # Main notebook
 │
+├── scripts/                              # Retraining & measurement scripts
+│   ├── retrain_custom_cnn.py             #   Custom CNN training run
+│   ├── retrain_mobilenetv2.py            #   MobileNetV2 frozen-backbone training
+│   ├── retrain_resnet18.py               #   ResNet-18 frozen-backbone training
+│   └── measure_model.py                  #   Accuracy, latency & confusion pairs
+│
+├── tests/                                # Pytest unit & integration tests
+│   ├── conftest.py                       #   Shared fixtures
+│   ├── test_models.py                    #   Architecture smoke tests
+│   ├── test_inference.py                 #   predict() contract tests
+│   ├── test_preprocessing.py             #   Transform pipeline tests
+│   ├── test_gradcam.py                   #   Grad-CAM hook tests
+│   ├── test_benchmark_data.py            #   Metric consistency tests
+│   ├── test_checkpoint_remap.py          #   Checkpoint key migration tests
+│   └── test_device.py                    #   Device selection tests
+│
 ├── results/                              # Training results & analysis
 ├── artifacts/                            # Exported configs and run metadata
 ├── examples/                             # Example images for the live demo
@@ -343,6 +359,8 @@ CIFAR-10-Image-Classification/
 │
 ├── requirements.txt                      # Gradio / HF Spaces dependencies
 ├── requirements-dev.txt                  # Development dependencies
+├── runtime.txt                           # Python version pin for HF Spaces
+├── pytest.ini                            # Pytest configuration
 ├── LICENSE                               # MIT License
 └── .gitignore                            # Git ignore rules
 ```

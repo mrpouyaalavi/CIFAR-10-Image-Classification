@@ -35,7 +35,7 @@ Usage Examples:
     python gradcam.py --model mobilenet --image-index 42 --save results/gradcam/
     python gradcam.py --model both --num-images 8 --save results/gradcam/
 
-Author:  Pouya Alavi
+Author:  Pouya Alavi Naeini
 License: MIT
 """
 

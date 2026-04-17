@@ -10,7 +10,7 @@ Three architectures compared on CIFAR-10:
 Model weights are downloaded from the HF Hub on first use and cached
 for the lifetime of the Space container.
 
-Author : Pouya Alavi  (pouya@pouyaalavi.dev)
+Author : Pouya Alavi Naeini  (pouya@pouyaalavi.dev)
 License: MIT
 """
 
@@ -148,7 +148,7 @@ def classify(image: Image.Image | None, model_name: str) -> dict[str, float]:
         return {cls: round(conf / 100.0, 4) for cls, conf in results}
     except Exception as exc:
         log.error("classify() failed for %s: %s", model_name, exc)
-        return {"error — check logs": 1.0}
+        raise gr.Error(f"Inference failed for {model_name}. Check Space logs for details.") from exc
 
 
 def compare_all_models(
@@ -172,7 +172,7 @@ def compare_all_models(
             outputs.append({cls: round(conf / 100.0, 4) for cls, conf in results})
         except Exception as exc:
             log.error("compare_all_models() failed for %s: %s", name, exc)
-            outputs.append({"error loading model": 1.0})
+            outputs.append({f"⚠ {name} unavailable": 1.0})
 
     # Guarantee exactly 3 outputs (pad if needed — should never happen)
     while len(outputs) < 3:
@@ -202,6 +202,46 @@ def _comparison_table_md() -> str:
     return header + "\n".join(rows)
 
 
+def _key_findings_md() -> str:
+    """Build the Key Findings bullet list dynamically from BENCHMARK_METRICS."""
+    bm = BENCHMARK_METRICS
+    mobile = bm["MobileNetV2"]
+    resnet = bm["ResNet-18"]
+    cnn    = bm["Custom CNN"]
+
+    pp_delta    = mobile["test_accuracy"] - cnn["test_accuracy"]
+    param_ratio = round(cnn["trainable_params"] / mobile["trainable_params"])
+
+    return (
+        f"- **MobileNetV2** — {mobile['test_accuracy']:.2f} % accuracy with "
+        f"{mobile['trainable_params']:,} trainable params "
+        f"(frozen backbone + linear head).\n"
+        f"- **ResNet-18** — {resnet['test_accuracy']:.2f} % accuracy with only "
+        f"{resnet['trainable_params']:,} trainable params "
+        f"(fewest of any deployed model).\n"
+        f"- **Custom CNN** — {cnn['test_accuracy']:.2f} % accuracy with "
+        f"{cnn['trainable_params'] / 1e6:.2f} M trainable params "
+        f"(trained from scratch — demonstrates the transfer-learning gap).\n"
+        f"- MobileNetV2 achieves **+{pp_delta:.1f} pp** over the CNN "
+        f"with **{param_ratio}× fewer** trainable parameters."
+    )
+
+
+def _about_model_table_md() -> str:
+    """Build the deployed-model summary table from BENCHMARK_METRICS."""
+    header = (
+        "| Model | Approach | Trainable Params | Accuracy |\n"
+        "|-------|----------|-----------------|----------|\n"
+    )
+    rows = [
+        f"| {m['display_name']} | {m['strategy'].split('(')[0].strip()} "
+        f"| {m['trainable_params']:,} | {m['test_accuracy']:.2f} % |"
+        for m in BENCHMARK_METRICS.values()
+        if m["available"]
+    ]
+    return header + "\n".join(rows)
+
+
 def _confusion_pairs_md() -> str:
     header = (
         "| Pair | Custom CNN | MobileNetV2 | Reduction |\n"
@@ -222,7 +262,7 @@ _CSS = """
 footer  { display: none !important; }
 """
 
-with gr.Blocks(title="CIFAR-10 — Pouya Alavi", css=_CSS) as demo:
+with gr.Blocks(title="CIFAR-10 — Pouya Alavi Naeini", css=_CSS) as demo:
 
     gr.Markdown(
         "<h1 class='title'>🧠 CIFAR-10 Image Classification</h1>"
@@ -248,7 +288,7 @@ with gr.Blocks(title="CIFAR-10 — Pouya Alavi", css=_CSS) as demo:
                     img_in = gr.Image(type="pil", label="Upload an image", height=280)
                     model_dd = gr.Dropdown(
                         choices=DEPLOYED_MODELS,
-                        value=DEPLOYED_MODELS[0],
+                        value="MobileNetV2",   # best accuracy — best first impression
                         label="Model",
                     )
                     predict_btn = gr.Button("Classify ▶", variant="primary")
@@ -301,17 +341,7 @@ with gr.Blocks(title="CIFAR-10 — Pouya Alavi", css=_CSS) as demo:
             )
             gr.Markdown(_comparison_table_md())
 
-            gr.Markdown(
-                "### Key Findings\n"
-                "- **MobileNetV2** — 86.91 % accuracy with 12,810 trainable params "
-                "(frozen backbone + linear head).\n"
-                "- **ResNet-18** — 82.10 % accuracy with only 5,130 trainable params "
-                "(fewest of any deployed model).\n"
-                "- **Custom CNN** — 48.40 % accuracy with 2.46 M trainable params "
-                "(trained from scratch — demonstrates the transfer-learning gap).\n"
-                "- MobileNetV2 achieves **+38.5 pp** over the CNN with **192× fewer** "
-                "trainable parameters."
-            )
+            gr.Markdown("### Key Findings\n" + _key_findings_md())
 
             gr.Markdown("### Top-5 Hardest Confusion Pairs")
             gr.Markdown(_confusion_pairs_md())
@@ -333,19 +363,17 @@ with gr.Blocks(title="CIFAR-10 — Pouya Alavi", css=_CSS) as demo:
                 "images of a single object (similar to the provided examples). "
                 "For best results, use the example images or close-up shots of a single "
                 "object against a plain background.\n\n"
-                "### Training\n"
-                "- Augmentation: RandomCrop, HFlip, CutOut, MixUp, CutMix\n"
-                "- Optimiser: Adam (lr 0.001, wd 1e-4), CosineAnnealingLR, 15 epochs\n\n"
-                "### Deployed Models\n"
-                "| Model | Approach | Trainable Params | Accuracy |\n"
-                "|-------|----------|-----------------|----------|\n"
-                "| Custom CNN | From scratch | 2,462,282 | 48.40 % |\n"
-                "| MobileNetV2 | Frozen backbone | 12,810 | 86.91 % |\n"
-                "| ResNet-18 | Frozen backbone | 5,130 | 82.10 % |\n\n"
+                f"### Training\n"
+                f"- Augmentation: RandomCrop, HFlip, CutOut, MixUp, CutMix\n"
+                f"- Optimiser: {TRAINING_CONFIG['optimizer']} "
+                f"(lr {TRAINING_CONFIG['learning_rate']}, "
+                f"wd {TRAINING_CONFIG['weight_decay']}), "
+                f"CosineAnnealingLR, {TRAINING_CONFIG['epochs']} epochs\n\n"
+                "### Deployed Models\n" + _about_model_table_md() + "\n\n"
                 "### Links\n"
                 "- [GitHub](https://github.com/mrpouyaalavi/CIFAR-10-Image-Classification)\n"
                 "- [Portfolio](https://pouyaalavi.dev)\n\n"
-                "**Pouya Alavi** — BIT student, Macquarie University "
+                "**Pouya Alavi Naeini** — BIT student, Macquarie University "
                 "(AI & Web/App Development).\n\n"
                 "*PyTorch · Gradio · Hugging Face Spaces*"
             )

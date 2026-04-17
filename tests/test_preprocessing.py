@@ -40,6 +40,14 @@ def test_mobilenet_transform_produces_224x224(dummy_pil_image) -> None:
     assert tensor.dtype == torch.float32
 
 
+def test_resnet18_transform_produces_224x224(dummy_pil_image) -> None:
+    """ResNet-18 uses the same ImageNet pipeline as MobileNetV2: 224×224."""
+    transform = get_transform("ResNet-18")
+    tensor = transform(dummy_pil_image)
+    assert tensor.shape == (3, 224, 224)
+    assert tensor.dtype == torch.float32
+
+
 def test_unknown_model_defaults_to_imagenet_transform(dummy_pil_image) -> None:
     """Unrecognised names fall through to the ImageNet pipeline.
 
@@ -57,6 +65,7 @@ def test_unknown_model_defaults_to_imagenet_transform(dummy_pil_image) -> None:
     [
         ("Custom CNN", CIFAR_MEAN, CIFAR_STD),
         ("MobileNetV2", IMAGENET_MEAN, IMAGENET_STD),
+        ("ResNet-18", IMAGENET_MEAN, IMAGENET_STD),
     ],
 )
 def test_transform_uses_correct_normalization(

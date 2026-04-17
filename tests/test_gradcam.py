@@ -23,6 +23,7 @@ from model_utils import (
     CustomCNN,
     GradCAM,
     build_mobilenetv2,
+    build_resnet18,
     compute_gradcam_overlay,
     get_gradcam_target_layer,
 )
@@ -38,6 +39,33 @@ def test_get_gradcam_target_layer_mobilenet_returns_module() -> None:
     model = build_mobilenetv2(num_classes=10)
     layer = get_gradcam_target_layer(model, "MobileNetV2")
     assert isinstance(layer, nn.Module)
+
+
+def test_get_gradcam_target_layer_resnet18_returns_module() -> None:
+    """ResNet-18 Grad-CAM target layer must be a valid nn.Module."""
+    model = build_resnet18(num_classes=10)
+    layer = get_gradcam_target_layer(model, "ResNet-18")
+    assert isinstance(layer, nn.Module)
+
+
+def test_compute_gradcam_overlay_handles_frozen_resnet18(
+    dummy_pil_image, device: torch.device,
+) -> None:
+    """ResNet-18 has the same frozen-backbone footgun as MobileNetV2.
+
+    The Grad-CAM input tensor must carry ``requires_grad=True`` to allow
+    gradients to flow back through the frozen backbone to the target layer.
+    A blank heatmap (max == 0) signals that the gradient pathway is broken.
+    """
+    model = build_resnet18(num_classes=10).to(device)
+    model.train(False)
+    overlay, heatmap, pred_class, confidence = compute_gradcam_overlay(
+        model, dummy_pil_image, "ResNet-18", device, alpha=0.5,
+    )
+    assert overlay.dtype == np.uint8
+    assert heatmap.max() > 0.0
+    assert 0 <= pred_class < 10
+    assert 0.0 <= confidence <= 100.0
 
 
 def test_gradcam_hooks_fire_on_custom_cnn(device: torch.device) -> None:
