@@ -1,4 +1,0 @@
-# ── Dependencies for the Streamlit landing page ────────────────────────────
-# The landing page is a lightweight redirect — no ML dependencies needed.
-
-streamlit>=1.32.0

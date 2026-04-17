@@ -36,7 +36,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 # Device selection is centralised in model_utils so every surface
-# (CLI, Streamlit app, Grad-CAM, retrain script) uses identical logic.
+# (CLI, Gradio demo, Grad-CAM, retrain script) uses identical logic.
 from model_utils import pretty_model_name, select_device  # noqa: E402  (import after std-lib imports)
 
 

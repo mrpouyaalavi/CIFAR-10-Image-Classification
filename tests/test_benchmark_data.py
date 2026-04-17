@@ -2,7 +2,7 @@
 Tests for the canonical benchmark data module.
 
 ``benchmark_data.py`` is the single source of truth for every number shown
-in the README, the Streamlit app, and the training-metadata JSON. These
+in the README, the Gradio demo, and the training-metadata JSON. These
 tests lock down its schema so we never ship inconsistent or malformed
 metrics (which would be extremely embarrassing on a portfolio site).
 """

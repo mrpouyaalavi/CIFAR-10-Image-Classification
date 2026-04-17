@@ -52,7 +52,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
 # Device selection is centralised in model_utils so every surface
-# (CLI, Streamlit app, Grad-CAM, retrain script) uses identical logic.
+# (CLI, Gradio demo, Grad-CAM, retrain script) uses identical logic.
 from model_utils import (  # noqa: E402
     pretty_model_name,
     select_device as _select_device,

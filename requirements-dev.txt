@@ -1,6 +1,6 @@
 # ── Developer / CI dependencies ────────────────────────────────────────────
 # Installed on top of requirements.txt in CI and for local development.
-# Deliberately separate so the deployed Streamlit container doesn't pull
+# Deliberately separate so the deployed HF Space container doesn't pull
 # test-only packages into its cold-start path.
 
 -r requirements.txt

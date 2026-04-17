@@ -2,8 +2,8 @@
 Shared model definitions, loading utilities, and Grad-CAM for CIFAR-10.
 
 This module is the single source of truth for model architectures and
-checkpoint loading. It is imported by app.py, and can also be used by
-predict.py and gradcam.py to eliminate duplication.
+checkpoint loading. It is imported by app.py (Gradio demo on Hugging Face
+Spaces), and can also be used by predict.py and gradcam.py directly.
 """
 
 from __future__ import annotations
@@ -152,7 +152,7 @@ def build_efficientnet_b0(num_classes: int = 10) -> nn.Module:
 # ============================================================================
 #
 # Single source of truth for device auto-detection across every surface in
-# this repo (training, evaluation, CLI inference, Grad-CAM, Streamlit app).
+# this repo (training, evaluation, CLI inference, Grad-CAM, Gradio demo).
 # The goal: pick the best accelerator available, and print it exactly once
 # per process so there's always a clear record in the logs.
 #
@@ -162,7 +162,7 @@ def build_efficientnet_b0(num_classes: int = 10) -> nn.Module:
 #   3. CPU    — universal fallback
 #
 # The `_device_logged` module-level flag ensures we only print once even
-# when multiple callers (Streamlit rerun loops, test suites, notebooks)
+# when multiple callers (Gradio reruns, test suites, notebooks)
 # hit select_device() repeatedly.
 
 _device_logged: bool = False
@@ -196,7 +196,7 @@ def select_device(verbose: bool = True) -> torch.device:
         If True *and* this is the first call in the current process, print a
         one-line summary of the selected device to stdout. Subsequent calls
         stay silent regardless of `verbose` so we don't spam the console on
-        every Streamlit rerun. Pass `verbose=False` to silence the first call
+        every Gradio rerun. Pass `verbose=False` to silence the first call
         too (useful for tests).
 
     Returns

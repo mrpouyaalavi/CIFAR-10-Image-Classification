@@ -3,9 +3,9 @@ CIFAR-10 Image Classification — Gradio Demo (Hugging Face Spaces)
 ==================================================================
 
 Three architectures compared on CIFAR-10:
-  · Custom CNN       — trained from scratch (48.40 %)
-  · MobileNetV2      — frozen ImageNet backbone (86.91 %)
-  · ResNet-18        — frozen ImageNet backbone (82.10 %)
+  · Custom CNN   — trained from scratch       (48.40 %)
+  · MobileNetV2  — frozen ImageNet backbone   (86.91 %)
+  · ResNet-18    — frozen ImageNet backbone   (82.10 %)
 
 Model weights are downloaded from the HF Hub on first use and cached
 for the lifetime of the Space container.
@@ -235,6 +235,14 @@ with gr.Blocks(title="CIFAR-10 — Pouya Alavi", css=_CSS) as demo:
         # ── Tab 1: Live Demo ──────────────────────────────────────────────
         with gr.TabItem("🔬 Live Demo"):
 
+            gr.Markdown(
+                "> **Tip:** These models were trained on 32×32 CIFAR-10 thumbnails. "
+                "They work best on simple, centred images of a single object — "
+                "use the example images below for reliable results. "
+                "Real-world high-resolution photos may produce unexpected predictions "
+                "due to the domain gap between training data and natural images."
+            )
+
             with gr.Row():
                 with gr.Column(scale=1):
                     img_in = gr.Image(type="pil", label="Upload an image", height=280)
@@ -316,7 +324,15 @@ with gr.Blocks(title="CIFAR-10 — Pouya Alavi", css=_CSS) as demo:
                 "> *How much does a pretrained backbone actually help compared to "
                 "training from scratch — when both models share the same training budget?*\n\n"
                 "### Dataset\n"
-                "CIFAR-10 — 60,000 32×32 RGB images, 10 classes.\n\n"
+                "CIFAR-10 — 60,000 **32×32** RGB images across 10 classes: "
+                "airplane, automobile, bird, cat, deer, dog, frog, horse, ship, truck.\n\n"
+                "### ⚠️ About Real-World Images\n"
+                "These models were trained exclusively on **32×32 thumbnail-style** images. "
+                "High-resolution real-world photos may produce unexpected predictions — "
+                "this is the classic *domain gap*. Models work best with simple, centred "
+                "images of a single object (similar to the provided examples). "
+                "For best results, use the example images or close-up shots of a single "
+                "object against a plain background.\n\n"
                 "### Training\n"
                 "- Augmentation: RandomCrop, HFlip, CutOut, MixUp, CutMix\n"
                 "- Optimiser: Adam (lr 0.001, wd 1e-4), CosineAnnealingLR, 15 epochs\n\n"
@@ -328,7 +344,6 @@ with gr.Blocks(title="CIFAR-10 — Pouya Alavi", css=_CSS) as demo:
                 "| ResNet-18 | Frozen backbone | 5,130 | 82.10 % |\n\n"
                 "### Links\n"
                 "- [GitHub](https://github.com/mrpouyaalavi/CIFAR-10-Image-Classification)\n"
-                "- [Legacy Streamlit app](https://cifar10-pouyaalavi.streamlit.app/)\n"
                 "- [Portfolio](https://pouyaalavi.dev)\n\n"
                 "**Pouya Alavi** — BIT student, Macquarie University "
                 "(AI & Web/App Development).\n\n"
