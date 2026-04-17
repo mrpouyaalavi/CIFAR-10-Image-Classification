@@ -26,6 +26,7 @@ Usage
 -----
     python scripts/measure_model.py --model custom_cnn
     python scripts/measure_model.py --model mobilenet --no-latency
+    python scripts/measure_model.py --model resnet18
     python scripts/measure_model.py --model custom_cnn --device cpu
 """
 
@@ -50,7 +51,7 @@ if str(ROOT) not in sys.path:
 
 from model_utils import (  # noqa: E402
     CIFAR_MEAN, CIFAR_STD, IMAGENET_MEAN, IMAGENET_STD,
-    CLASS_NAMES, CustomCNN, build_mobilenetv2,
+    CLASS_NAMES, CustomCNN, build_mobilenetv2, build_resnet18,
     pretty_model_name, select_device,
 )
 
@@ -73,32 +74,51 @@ PAIR_DISPLAY = {
     ("bird",       "deer"):  "Bird ↔ Deer",
 }
 
+# Maps CLI key → (builder_fn, checkpoint_filename, input_size)
+# input_size is the spatial dimension the model requires (square).
+_MODEL_REGISTRY: dict[str, tuple] = {
+    "custom_cnn": (
+        lambda: CustomCNN(num_classes=10),
+        "custom_cnn_best.pth",
+        32,
+    ),
+    "mobilenet": (
+        lambda: build_mobilenetv2(num_classes=10),
+        "mobilenetv2_best.pth",
+        224,
+    ),
+    "resnet18": (
+        lambda: build_resnet18(num_classes=10),
+        "resnet-18_best.pth",
+        224,
+    ),
+}
+
 
 def build_model(model_key: str, device: torch.device) -> torch.nn.Module:
     """Load a trained model from its canonical checkpoint path."""
-    if model_key == "custom_cnn":
-        model = CustomCNN(num_classes=10)
-        ckpt = ROOT / "checkpoints" / "custom_cnn_best.pth"
-    elif model_key == "mobilenet":
-        model = build_mobilenetv2(num_classes=10)
-        ckpt = ROOT / "checkpoints" / "mobilenetv2_best.pth"
-    else:
-        raise ValueError(f"unknown model key: {model_key}")
-
+    if model_key not in _MODEL_REGISTRY:
+        raise ValueError(
+            f"unknown model key {model_key!r}. Choose from: {list(_MODEL_REGISTRY)}"
+        )
+    builder, ckpt_name, _ = _MODEL_REGISTRY[model_key]
+    model = builder()
+    ckpt = ROOT / "checkpoints" / ckpt_name
     state = torch.load(ckpt, map_location=device, weights_only=True)
     model.load_state_dict(state)
-    model.to(device).eval()
+    model.to(device).train(False)
     return model
 
 
 def get_test_loader(model_key: str, batch_size: int) -> DataLoader:
     """Test loader with the model-appropriate preprocessing (no augmentation)."""
-    if model_key == "custom_cnn":
+    _, _, input_size = _MODEL_REGISTRY[model_key]
+    if input_size == 32:
         tfm = T.Compose([T.ToTensor(), T.Normalize(CIFAR_MEAN, CIFAR_STD)])
     else:
-        # MobileNetV2 expects 224×224 ImageNet-normalised inputs.
+        # Transfer models expect 224×224 ImageNet-normalised inputs.
         tfm = T.Compose([
-            T.Resize((224, 224)),
+            T.Resize((input_size, input_size)),
             T.ToTensor(),
             T.Normalize(IMAGENET_MEAN, IMAGENET_STD),
         ])
@@ -181,7 +201,7 @@ def measure_latency(
     model: torch.nn.Module, model_key: str, device: torch.device, trials: int,
 ) -> dict:
     """Median single-image CPU latency. Warm-up first to stabilise measurements."""
-    input_size = 32 if model_key == "custom_cnn" else 224
+    _, _, input_size = _MODEL_REGISTRY[model_key]
     x = torch.randn(1, 3, input_size, input_size, device=device)
 
     # Warm-up: first few forward passes allocate memory and compile kernels.
@@ -214,7 +234,12 @@ def measure_latency(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", choices=("custom_cnn", "mobilenet"), required=True)
+    parser.add_argument(
+        "--model",
+        choices=tuple(_MODEL_REGISTRY.keys()),
+        required=True,
+        help="Which model checkpoint to measure.",
+    )
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--device", choices=("auto", "cpu", "cuda", "mps"),
                         default="auto")

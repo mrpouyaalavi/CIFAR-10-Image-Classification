@@ -1,9 +1,16 @@
 """
 Shared model definitions, loading utilities, and Grad-CAM for CIFAR-10.
 
-This module is the single source of truth for model architectures and
-checkpoint loading. It is imported by app.py (Gradio demo on Hugging Face
-Spaces), and can also be used by predict.py and gradcam.py directly.
+This is the **single source of truth** for the entire project:
+  - Model architecture definitions (CustomCNN, MobileNetV2, ResNet-18, ...)
+  - Checkpoint loading with HF Hub fallback
+  - Preprocessing transforms (model-specific)
+  - Inference (predict function)
+  - Grad-CAM implementation and overlay rendering
+  - Device auto-detection
+
+Both the Gradio demo (app.py) and the CLI tools (predict.py, gradcam.py)
+import from here. Architecture code must NOT be duplicated elsewhere.
 """
 
 from __future__ import annotations
@@ -395,12 +402,6 @@ def load_model_by_name(name: str, device: torch.device) -> nn.Module:
     return model
 
 
-def load_models(device: torch.device) -> dict[str, nn.Module]:
-    """Load every available model at once.  Kept for backward compatibility."""
-    return {
-        name: load_model_by_name(name, device)
-        for name in list_available_models()
-    }
 
 
 # ============================================================================

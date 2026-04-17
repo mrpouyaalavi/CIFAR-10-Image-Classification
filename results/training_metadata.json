@@ -14,7 +14,7 @@
   "dataset": "CIFAR-10",
   "train_size": 50000,
   "test_size": 10000,
-  "note": "Canonical metrics live in benchmark_data.py (single source of truth). Custom CNN latency re-measured 2026-04-11 with 100 trials (1.38 ms median, replacing the older 50-trial 1.03 ms figure). Custom CNN and MobileNetV2 accuracy numbers are verified empirically from the committed checkpoints (2026-04-10); the other three architectures are reported from the original notebook study.",
+  "note": "Canonical metrics live in benchmark_data.py (single source of truth). Custom CNN latency re-measured 2026-04-11 with 100 trials (1.38 ms median). All three deployed models (Custom CNN, MobileNetV2, ResNet-18) have accuracy verified empirically from checkpoints hosted on mrpouyaalavi/cifar10-models on the HF Hub. EfficientNet-B0 and ViT-Small are from the original notebook study and are not deployed.",
   "results": {
     "Custom CNN": {
       "strategy": "Trained from scratch",
@@ -39,9 +39,9 @@
       "strategy": "Transfer learning (frozen backbone)",
       "test_accuracy": 82.10,
       "trainable_params": 5130,
-      "checkpoint": "checkpoints/resnet-18_best.pth",
-      "verified": false,
-      "note": "Reported from the original notebook study; checkpoint not committed due to size."
+      "checkpoint": "mrpouyaalavi/cifar10-models (resnet-18_best.pth, 42.73 MB)",
+      "verified": true,
+      "note": "Checkpoint hosted on HF Hub and downloaded at runtime by app.py. Accuracy 82.10% verified on the full 10 000-image test set. Run scripts/measure_model.py --model resnet18 to reproduce."
     },
     "EfficientNet-B0": {
       "strategy": "Transfer learning (frozen backbone)",

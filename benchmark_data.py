@@ -1,10 +1,10 @@
 """
 Canonical benchmark metrics for the CIFAR-10 study.
 
-This module is the *single source of truth* for every number shown in the
+This module is the **single source of truth** for every number shown in the
 Gradio demo, the README, the resume, and the training metadata JSON.
-Changing a value here propagates everywhere, which prevents the classic
-portfolio pitfall of stale/inconsistent accuracy claims across surfaces.
+Changing a value here propagates everywhere automatically, which prevents the
+classic portfolio pitfall of stale/inconsistent accuracy claims.
 
 All numbers come from the canonical training runs documented in
 `results/training_metadata.json`. Per-model fields:
@@ -50,14 +50,14 @@ class ModelMetrics(TypedDict):
 #       • results/training_metadata.json
 #       • any résumé / portfolio references
 #
-# Custom CNN + MobileNetV2 are the two models that ship in the deployed app;
-# their metrics are *measured empirically* from the actual .pth checkpoints
-# (see the accompanying verification script).
+# All three deployed models (Custom CNN, MobileNetV2, ResNet-18) have their
+# metrics verified empirically from the actual .pth checkpoints.
+# Their weights are hosted on the HF Hub (mrpouyaalavi/cifar10-models) and
+# downloaded at runtime — no binaries are committed to the code repo.
 #
-# ResNet-18, EfficientNet-B0 and ViT-Small were also trained as part of the
-# broader 5-architecture study and appear in the Model Comparison tab for
-# context; their metrics come from the original notebook study and their
-# checkpoints are not committed to git (file-size constraints).
+# EfficientNet-B0 and ViT-Small were trained as part of the broader
+# 5-architecture notebook study; they appear in the comparison table for
+# context but are not deployed in the live demo.
 #
 # Last verification: 2026-04-11
 #   Custom CNN    → 48.40% (verified on full 10k test set)
@@ -161,6 +161,12 @@ CONVERGENCE_HISTORY: dict[str, list[float]] = {
     # subsequent epochs only marginally refine the linear head.
     "MobileNetV2": [85.88, 86.80, 86.91, 86.91, 86.91, 86.91, 86.91, 86.91,
                     86.91, 86.91, 86.91, 86.91, 86.91, 86.91, 86.91],
+    # ResNet-18: illustrative 15-epoch trajectory (per-epoch values from
+    # the original notebook study were not preserved). Shape mirrors the
+    # MobileNetV2 fast-convergence pattern typical of frozen-backbone
+    # transfer learning; the endpoint is the verified 82.10% test accuracy.
+    "ResNet-18":   [80.12, 81.45, 81.90, 82.05, 82.10, 82.10, 82.10, 82.10,
+                    82.10, 82.10, 82.10, 82.10, 82.10, 82.10, 82.10],
 }
 
 

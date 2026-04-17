@@ -21,6 +21,7 @@ from model_utils import (
     CLASS_NAMES,
     CustomCNN,
     build_mobilenetv2,
+    build_resnet18,
 )
 
 
@@ -105,6 +106,53 @@ def test_mobilenet_trainable_param_count_matches_benchmark() -> None:
     model = build_mobilenetv2(num_classes=10)
     actual = sum(p.numel() for p in model.parameters() if p.requires_grad)
     expected = BENCHMARK_METRICS["MobileNetV2"]["trainable_params"]
+    assert actual == expected
+
+
+# ----- ResNet-18 ---------------------------------------------------------
+
+
+def test_resnet18_forward_shape(device: torch.device) -> None:
+    """ResNet-18 expects 224×224 input and outputs (batch, 10) logits."""
+    model = build_resnet18(num_classes=10).to(device)
+    model.train(False)
+    x = torch.randn(1, 3, 224, 224, device=device)
+    with torch.no_grad():
+        logits = model(x)
+    assert logits.shape == (1, 10)
+    assert torch.isfinite(logits).all()
+
+
+def test_resnet18_backbone_is_frozen() -> None:
+    """Only the final FC layer should require gradients.
+
+    ResNet-18's transfer-learning story mirrors MobileNetV2: the entire
+    pretrained backbone is frozen and only the replacement FC head is
+    trained. The 82.10% published accuracy depends on this freeze.
+    """
+    model = build_resnet18(num_classes=10)
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            assert name.startswith("fc."), (
+                f"Backbone parameter {name!r} is trainable — the freeze broke."
+            )
+
+
+def test_resnet18_trainable_param_count_matches_benchmark() -> None:
+    """The FC head must contain exactly 5 130 trainable parameters.
+
+    ResNet-18's penultimate layer is 512-wide; the head is ``Linear(512, 10)``:
+        weight: 512 × 10 = 5 120
+        bias:            10
+        total:        5 130
+
+    This matches ``BENCHMARK_METRICS['ResNet-18']['trainable_params']``.
+    """
+    from benchmark_data import BENCHMARK_METRICS
+
+    model = build_resnet18(num_classes=10)
+    actual = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    expected = BENCHMARK_METRICS["ResNet-18"]["trainable_params"]
     assert actual == expected
 
 

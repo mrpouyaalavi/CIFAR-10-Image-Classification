@@ -23,6 +23,7 @@ from model_utils import (
     CLASS_NAMES,
     CustomCNN,
     build_mobilenetv2,
+    build_resnet18,
     predict,
 )
 
@@ -39,6 +40,14 @@ def custom_cnn_model(device: torch.device):
 def mobilenet_model(device: torch.device):
     """Real MobileNetV2 backbone with a randomly-initialised head."""
     model = build_mobilenetv2(num_classes=10).to(device)
+    model.train(False)
+    return model
+
+
+@pytest.fixture()
+def resnet18_model(device: torch.device):
+    """Real ResNet-18 backbone with a randomly-initialised FC head."""
+    model = build_resnet18(num_classes=10).to(device)
     model.train(False)
     return model
 
@@ -81,6 +90,26 @@ def test_predict_top_k_one(
     cls, conf = preds[0]
     assert cls in CLASS_NAMES
     assert 0.0 <= conf <= 100.0
+
+
+def test_predict_resnet18_contract(
+    resnet18_model, dummy_pil_image, device: torch.device
+) -> None:
+    """ResNet-18 predict() must satisfy the same public contract as the others.
+
+    We also verify that confidences are non-increasing so we catch any
+    regression where the top-k sort order breaks for a 224×224 input path.
+    """
+    preds = predict(
+        resnet18_model, dummy_pil_image, "ResNet-18", device, top_k=5,
+    )
+    assert isinstance(preds, list)
+    assert len(preds) == 5
+    for class_name, confidence in preds:
+        assert class_name in CLASS_NAMES
+        assert 0.0 <= confidence <= 100.0
+    confidences = [c for _, c in preds]
+    assert confidences == sorted(confidences, reverse=True)
 
 
 def test_predict_top_k_all(
