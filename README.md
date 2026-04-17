@@ -36,8 +36,6 @@ This project is a portfolio-grade machine learning study that goes beyond model 
 
 **[📓 Explore the Notebook](cifar10%20image%20classification.ipynb)** &nbsp;·&nbsp; **[🚀 Live Demo](https://mrpouyaalavi-cifar-10-image-classification.hf.space)** &nbsp;·&nbsp; **[📊 Key Results](#-key-results--performance-benchmarks)**
 
-> **Note:** The original Streamlit demo at [cifar10-pouyaalavi.streamlit.app](https://cifar10-pouyaalavi.streamlit.app/) is preserved as a lightweight landing page that redirects to the new Hugging Face Space.
-
 <br/>
 
 <img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
@@ -319,8 +317,6 @@ Upload an image or select an example to compare deployed models with live predic
 
 The live demo is hosted on **[Hugging Face Spaces](https://mrpouyaalavi-cifar-10-image-classification.hf.space)**.
 
-> **Legacy Streamlit landing page:** [cifar10-pouyaalavi.streamlit.app](https://cifar10-pouyaalavi.streamlit.app/) redirects to the Hugging Face demo. To run it locally: `streamlit run streamlit_app.py`
-
 <br/>
 
 <img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
@@ -333,7 +329,6 @@ The live demo is hosted on **[Hugging Face Spaces](https://mrpouyaalavi-cifar-10
 CIFAR-10-Image-Classification/
 │
 ├── app.py                                # Gradio demo (HF Spaces entry point)
-├── streamlit_app.py                      # Legacy Streamlit landing page
 ├── model_utils.py                        # Shared model architectures & inference
 ├── benchmark_data.py                     # Canonical benchmark metrics
 ├── predict.py                            # CLI inference tools
@@ -347,7 +342,6 @@ CIFAR-10-Image-Classification/
 ├── data/                                 # CIFAR-10 dataset (auto-downloaded)
 │
 ├── requirements.txt                      # Gradio / HF Spaces dependencies
-├── requirements-streamlit.txt            # Streamlit landing page dependencies
 ├── requirements-dev.txt                  # Development dependencies
 ├── LICENSE                               # MIT License
 └── .gitignore                            # Git ignore rules

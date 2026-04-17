@@ -2,7 +2,7 @@
 Canonical benchmark metrics for the CIFAR-10 study.
 
 This module is the *single source of truth* for every number shown in the
-Streamlit app, the README, the resume, and the training metadata JSON.
+Gradio demo, the README, the resume, and the training metadata JSON.
 Changing a value here propagates everywhere, which prevents the classic
 portfolio pitfall of stale/inconsistent accuracy claims across surfaces.
 
