@@ -409,18 +409,22 @@ def load_model_by_name(name: str, device: torch.device) -> nn.Module:
 # ============================================================================
 
 def get_transform(model_name: str):
-    """Return the preprocessing pipeline for the given model."""
+    """Return the preprocessing pipeline for the given model.
+
+    antialias=True is required in torchvision ≥ 0.15 to suppress the
+    deprecation warning and matches PIL's LANCZOS/BILINEAR behaviour.
+    """
     import torchvision.transforms as transforms
 
     if model_name == "Custom CNN":
         return transforms.Compose([
-            transforms.Resize((32, 32)),
+            transforms.Resize((32, 32), antialias=True),
             transforms.ToTensor(),
             transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
         ])
     else:
         return transforms.Compose([
-            transforms.Resize((224, 224)),
+            transforms.Resize((224, 224), antialias=True),
             transforms.ToTensor(),
             transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
         ])

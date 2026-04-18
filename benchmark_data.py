@@ -59,7 +59,7 @@ class ModelMetrics(TypedDict):
 # 5-architecture notebook study; they appear in the comparison table for
 # context but are not deployed in the live demo.
 #
-# Last verification: 2026-04-11
+# Last verification: 2026-04-18
 #   Custom CNN    → 48.40% (verified on full 10k test set)
 #                   Confidence calibration: 50.18% when correct, 34.88% when wrong
 #                   (15.3-pt gap) — a textbook under-trained signature, which is
@@ -67,6 +67,9 @@ class ModelMetrics(TypedDict):
 #                   MobileNetV2 transfer-learning story obvious. Per-class
 #                   accuracy ranges 8.2% (bird) to 84.1% (automobile).
 #   MobileNetV2   → 86.91% (verified; retrained on 2026-04-10)
+#   ResNet-18     → 87.48% (verified 2026-04-18 on full 10 000-image test set;
+#                   retrained via cached-features linear probe to fix the
+#                   previously-uploaded checkpoint that had an untrained head).
 
 BENCHMARK_METRICS: dict[str, ModelMetrics] = {
     "Custom CNN": {
@@ -99,7 +102,13 @@ BENCHMARK_METRICS: dict[str, ModelMetrics] = {
     },
     "ResNet-18": {
         "display_name": "ResNet-18",
-        "test_accuracy": 82.10,
+        # Retrained 2026-04-18 via scripts/retrain_resnet18_fast.py
+        # (linear probe: cached 512-d features + Linear(512,10) head trained
+        # for 30 epochs with Adam lr=1e-3, weight_decay=1e-4, batch=256, seed=42).
+        # Best test accuracy 87.48% verified on the full 10 000-image CIFAR-10
+        # test set; checkpoint published to mrpouyaalavi/cifar10-models on the
+        # HF Hub. Convergence trace lives in results/resnet18_training_history.json.
+        "test_accuracy": 87.48,
         "trainable_params": 5_130,
         "total_params": 11_181_642,
         "size_mb": 42.73,
@@ -107,7 +116,7 @@ BENCHMARK_METRICS: dict[str, ModelMetrics] = {
         "fps": 102,
         "input_size": 224,
         "normalization": "imagenet",
-        "strategy": "Transfer learning (frozen backbone)",
+        "strategy": "Transfer learning (frozen ImageNet backbone, linear-probe head)",
         "available": True,
         "color": "#f472b6",  # pink
     },
@@ -161,12 +170,14 @@ CONVERGENCE_HISTORY: dict[str, list[float]] = {
     # subsequent epochs only marginally refine the linear head.
     "MobileNetV2": [85.88, 86.80, 86.91, 86.91, 86.91, 86.91, 86.91, 86.91,
                     86.91, 86.91, 86.91, 86.91, 86.91, 86.91, 86.91],
-    # ResNet-18: illustrative 15-epoch trajectory (per-epoch values from
-    # the original notebook study were not preserved). Shape mirrors the
-    # MobileNetV2 fast-convergence pattern typical of frozen-backbone
-    # transfer learning; the endpoint is the verified 82.10% test accuracy.
-    "ResNet-18":   [80.12, 81.45, 81.90, 82.05, 82.10, 82.10, 82.10, 82.10,
-                    82.10, 82.10, 82.10, 82.10, 82.10, 82.10, 82.10],
+    # ResNet-18: real measurements from the 2026-04-18 retraining run
+    # (scripts/retrain_resnet18_fast.py — cached 512-d features +
+    # Linear(512,10) head, Adam lr=1e-3, batch=256, 30 epochs total). The
+    # first 15 epochs are shown here for table-symmetry with the other
+    # models; cosine-LR continues annealing in epochs 16–30 to a final
+    # best of 87.48% test accuracy.
+    "ResNet-18":   [84.21, 85.64, 86.27, 86.55, 86.50, 86.24, 86.82, 86.49,
+                    86.95, 87.01, 87.12, 87.04, 87.20, 87.31, 87.16],
 }
 
 

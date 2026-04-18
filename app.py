@@ -5,7 +5,7 @@ CIFAR-10 Image Classification — Gradio Demo (Hugging Face Spaces)
 Three architectures compared on CIFAR-10:
   · Custom CNN   — trained from scratch       (48.40 %)
   · MobileNetV2  — frozen ImageNet backbone   (86.91 %)
-  · ResNet-18    — frozen ImageNet backbone   (82.10 %)
+  · ResNet-18    — frozen ImageNet backbone   (87.48 %)
 
 Model weights are downloaded from the HF Hub on first use and cached
 for the lifetime of the Space container.
@@ -28,6 +28,7 @@ from benchmark_data import (
     BENCHMARK_METRICS,
     CONFUSION_PAIRS,
     TRAINING_CONFIG,
+    available_models,
 )
 from model_utils import (
     CLASS_NAMES,
@@ -61,7 +62,7 @@ except Exception:
 # entire app module to crash before Gradio can register its API — manifesting
 # as "No API found".  Lazy loading on first request avoids this entirely.
 
-DEPLOYED_MODELS: list[str] = ["Custom CNN", "MobileNetV2", "ResNet-18"]
+DEPLOYED_MODELS: list[str] = available_models()  # derived from BENCHMARK_METRICS["...available"]
 
 # ── Lazy model cache ─────────────────────────────────────────────────────────
 
@@ -121,7 +122,7 @@ def _prepare_examples(n: int = 6) -> list[str]:
             if label in seen:
                 continue
             seen.add(label)
-            pil = transforms.ToPILImage()(img_tensor).resize((128, 128), Image.NEAREST)
+            pil = transforms.ToPILImage()(img_tensor).resize((128, 128), Image.BILINEAR)
             path = os.path.join(examples_dir, f"{CLASS_NAMES[label]}.png")
             pil.save(path)
             saved.append(path)
@@ -151,17 +152,17 @@ def classify(image: Image.Image | None, model_name: str) -> dict[str, float]:
         raise gr.Error(f"Inference failed for {model_name}. Check Space logs for details.") from exc
 
 
-def compare_all_models(
-    image: Image.Image | None,
-) -> tuple[dict, dict, dict]:
-    """Run inference with all three deployed models.
+def compare_all_models(image: Image.Image | None) -> list[dict]:
+    """Run inference with every deployed model.
 
-    Always returns exactly three dicts so the three gr.Label outputs are
-    always satisfied, regardless of which models loaded successfully.
+    Returns one dict per entry in ``DEPLOYED_MODELS`` (in order). The Gradio
+    Row below is built dynamically with the same length, so adding/removing
+    a model in benchmark_data.py automatically reshapes the comparison UI
+    — no hardcoded 3-tuple to drift from.
     """
     empty: dict[str, float] = {}
     if image is None:
-        return empty, empty, empty
+        return [empty for _ in DEPLOYED_MODELS]
 
     rgb = image.convert("RGB")
     outputs: list[dict] = []
@@ -174,11 +175,7 @@ def compare_all_models(
             log.error("compare_all_models() failed for %s: %s", name, exc)
             outputs.append({f"⚠ {name} unavailable": 1.0})
 
-    # Guarantee exactly 3 outputs (pad if needed — should never happen)
-    while len(outputs) < 3:
-        outputs.append(empty)
-
-    return outputs[0], outputs[1], outputs[2]
+    return outputs
 
 
 # ── Markdown helpers ──────────────────────────────────────────────────────────
@@ -186,11 +183,11 @@ def compare_all_models(
 def _comparison_table_md() -> str:
     rows = []
     for _k, m in BENCHMARK_METRICS.items():
-        badge = "**live**" if m["available"] else "study only"
+        badge = "live" if m["available"] else "study only"
         rows.append(
             f"| {m['display_name']} | {m['test_accuracy']:.2f}% "
             f"| {m['trainable_params']:,} | {m['total_params']:,} "
-            f"| {m['size_mb']:.1f} MB | {m['latency_ms']:.1f} ms "
+            f"| {m['size_mb']:.2f} MB | {m['latency_ms']:.2f} ms "
             f"| {m['strategy']} | {badge} |"
         )
     header = (
@@ -209,21 +206,25 @@ def _key_findings_md() -> str:
     resnet = bm["ResNet-18"]
     cnn    = bm["Custom CNN"]
 
-    pp_delta    = mobile["test_accuracy"] - cnn["test_accuracy"]
-    param_ratio = round(cnn["trainable_params"] / mobile["trainable_params"])
+    # Top transfer model — driven by the data, not hard-coded
+    top = max([mobile, resnet], key=lambda m: m["test_accuracy"])
+    pp_delta    = top["test_accuracy"] - cnn["test_accuracy"]
+    param_ratio = round(cnn["trainable_params"] / top["trainable_params"])
 
     return (
-        f"- **MobileNetV2** — {mobile['test_accuracy']:.2f} % accuracy with "
-        f"{mobile['trainable_params']:,} trainable params "
-        f"(frozen backbone + linear head).\n"
-        f"- **ResNet-18** — {resnet['test_accuracy']:.2f} % accuracy with only "
+        f"- **ResNet-18** — {resnet['test_accuracy']:.2f}% accuracy with only "
         f"{resnet['trainable_params']:,} trainable params "
-        f"(fewest of any deployed model).\n"
-        f"- **Custom CNN** — {cnn['test_accuracy']:.2f} % accuracy with "
-        f"{cnn['trainable_params'] / 1e6:.2f} M trainable params "
-        f"(trained from scratch — demonstrates the transfer-learning gap).\n"
-        f"- MobileNetV2 achieves **+{pp_delta:.1f} pp** over the CNN "
-        f"with **{param_ratio}× fewer** trainable parameters."
+        f"(fewest trainable params of any deployed model).\n"
+        f"- **MobileNetV2** — {mobile['test_accuracy']:.2f}% accuracy with "
+        f"{mobile['trainable_params']:,} trainable params "
+        f"(frozen ImageNet backbone + linear head).\n"
+        f"- **Custom CNN** — {cnn['test_accuracy']:.2f}% accuracy with "
+        f"{cnn['trainable_params']:,} trainable params "
+        f"(trained from scratch — establishes the baseline for the transfer-learning comparison).\n"
+        f"- The best transfer model (**{top['display_name']}**) achieves "
+        f"**+{pp_delta:.1f} pp** over the Custom CNN "
+        f"with **{param_ratio}×** fewer trainable parameters — the headline "
+        f"finding of the study."
     )
 
 
@@ -235,7 +236,7 @@ def _about_model_table_md() -> str:
     )
     rows = [
         f"| {m['display_name']} | {m['strategy'].split('(')[0].strip()} "
-        f"| {m['trainable_params']:,} | {m['test_accuracy']:.2f} % |"
+        f"| {m['trainable_params']:,} | {m['test_accuracy']:.2f}% |"
         for m in BENCHMARK_METRICS.values()
         if m["available"]
     ]
@@ -262,7 +263,7 @@ _CSS = """
 footer  { display: none !important; }
 """
 
-with gr.Blocks(title="CIFAR-10 — Pouya Alavi Naeini", css=_CSS) as demo:
+with gr.Blocks(title="CIFAR-10 — Pouya Alavi Naeini") as demo:
 
     gr.Markdown(
         "<h1 class='title'>🧠 CIFAR-10 Image Classification</h1>"
@@ -278,17 +279,23 @@ with gr.Blocks(title="CIFAR-10 — Pouya Alavi Naeini", css=_CSS) as demo:
             gr.Markdown(
                 "> **Tip:** These models were trained on 32×32 CIFAR-10 thumbnails. "
                 "They work best on simple, centred images of a single object — "
-                "use the example images below for reliable results. "
-                "Real-world high-resolution photos may produce unexpected predictions "
-                "due to the domain gap between training data and natural images."
+                "use the example images below for reliable results.\n"
+                ">\n"
+                "> On real-world high-resolution photos the Custom CNN (trained on 32×32) often *looks* "
+                "more plausible because its 32×32 resize pipeline matches its training distribution, "
+                "while MobileNetV2 sees a 224×224 upscale it was never trained on. "
+                "This is the classic **domain gap** — not evidence that the smaller model is better."
             )
 
             with gr.Row():
                 with gr.Column(scale=1):
                     img_in = gr.Image(type="pil", label="Upload an image", height=280)
+                    # Default to MobileNetV2 if it's deployed (best accuracy);
+                    # otherwise fall back to whatever the first deployed model is.
+                    _default_model = "MobileNetV2" if "MobileNetV2" in DEPLOYED_MODELS else DEPLOYED_MODELS[0]
                     model_dd = gr.Dropdown(
                         choices=DEPLOYED_MODELS,
-                        value="MobileNetV2",   # best accuracy — best first impression
+                        value=_default_model,
                         label="Model",
                     )
                     predict_btn = gr.Button("Classify ▶", variant="primary")
@@ -311,21 +318,24 @@ with gr.Blocks(title="CIFAR-10 — Pouya Alavi Naeini", css=_CSS) as demo:
 
             gr.Markdown("---")
             gr.Markdown(
-                "#### Compare All Three Models\n"
-                "Load an image above, then click the button to classify it "
-                "with Custom CNN, MobileNetV2, and ResNet-18 simultaneously."
+                f"#### Compare All Deployed Models\n"
+                f"Load an image above, then click the button to classify it "
+                f"with {', '.join(DEPLOYED_MODELS)} simultaneously."
             )
             compare_btn = gr.Button("Compare All Models ▶", variant="secondary")
 
+            # One gr.Label per deployed model — number of columns adapts
+            # automatically when DEPLOYED_MODELS changes in benchmark_data.py.
             with gr.Row():
-                out_cnn    = gr.Label(num_top_classes=5, label="Custom CNN")
-                out_mobile = gr.Label(num_top_classes=5, label="MobileNetV2")
-                out_resnet = gr.Label(num_top_classes=5, label="ResNet-18")
+                compare_outputs = [
+                    gr.Label(num_top_classes=5, label=name)
+                    for name in DEPLOYED_MODELS
+                ]
 
             compare_btn.click(
                 fn=compare_all_models,
                 inputs=img_in,
-                outputs=[out_cnn, out_mobile, out_resnet],
+                outputs=compare_outputs,
             )
 
         # ── Tab 2: Model Comparison ───────────────────────────────────────
@@ -333,17 +343,23 @@ with gr.Blocks(title="CIFAR-10 — Pouya Alavi Naeini", css=_CSS) as demo:
 
             gr.Markdown(
                 "### Architecture Benchmark\n\n"
-                "All models trained with identical settings — "
-                f"Adam lr={TRAINING_CONFIG['learning_rate']}, "
-                f"{TRAINING_CONFIG['epochs']} epochs, "
-                f"batch {TRAINING_CONFIG['batch_size']} — "
-                "on the full CIFAR-10 dataset."
+                "All models were evaluated under a consistent training budget on the full "
+                f"CIFAR-10 dataset — Adam lr={TRAINING_CONFIG['learning_rate']}, "
+                f"{TRAINING_CONFIG['epochs']} epochs, batch {TRAINING_CONFIG['batch_size']} — "
+                "with architecture-specific adaptations where required (e.g. no data augmentation "
+                "on frozen-backbone heads; ImageNet normalisation for transfer models).\n\n"
+                "> **Deployed in this demo:** Custom CNN, MobileNetV2, ResNet-18.  \n"
+                "> EfficientNet-B0 and ViT-Small are included in the table for study comparison only."
             )
             gr.Markdown(_comparison_table_md())
 
             gr.Markdown("### Key Findings\n" + _key_findings_md())
 
-            gr.Markdown("### Top-5 Hardest Confusion Pairs")
+            gr.Markdown(
+                "### Top-5 Hardest Confusion Pairs\n\n"
+                "Bidirectional misclassification counts on the full 10,000-image test set, "
+                "comparing the Custom CNN (before transfer learning) to MobileNetV2 (after)."
+            )
             gr.Markdown(_confusion_pairs_md())
 
         # ── Tab 3: About ──────────────────────────────────────────────────
@@ -351,27 +367,34 @@ with gr.Blocks(title="CIFAR-10 — Pouya Alavi Naeini", css=_CSS) as demo:
 
             gr.Markdown(
                 "## About This Project\n\n"
-                "> *How much does a pretrained backbone actually help compared to "
-                "training from scratch — when both models share the same training budget?*\n\n"
+                "> *How much does a pretrained ImageNet backbone actually help compared to "
+                "training from scratch — when architectures share the same training budget?*\n\n"
                 "### Dataset\n"
                 "CIFAR-10 — 60,000 **32×32** RGB images across 10 classes: "
-                "airplane, automobile, bird, cat, deer, dog, frog, horse, ship, truck.\n\n"
-                "### ⚠️ About Real-World Images\n"
+                "airplane, automobile, bird, cat, deer, dog, frog, horse, ship, truck. "
+                "50,000 training images · 10,000 test images.\n\n"
+                "### ⚠️ Domain Gap — Real-World Images\n"
                 "These models were trained exclusively on **32×32 thumbnail-style** images. "
-                "High-resolution real-world photos may produce unexpected predictions — "
-                "this is the classic *domain gap*. Models work best with simple, centred "
-                "images of a single object (similar to the provided examples). "
-                "For best results, use the example images or close-up shots of a single "
-                "object against a plain background.\n\n"
-                f"### Training\n"
-                f"- Augmentation: RandomCrop, HFlip, CutOut, MixUp, CutMix\n"
-                f"- Optimiser: {TRAINING_CONFIG['optimizer']} "
+                "High-resolution or complex real-world photos may produce unexpected "
+                "predictions — this is the classic *domain gap*. For best results use the "
+                "example images below, or simple close-up shots of a single object against "
+                "a plain background.\n\n"
+                "### Training Setup\n"
+                f"- **Optimiser:** {TRAINING_CONFIG['optimizer']} "
                 f"(lr {TRAINING_CONFIG['learning_rate']}, "
                 f"wd {TRAINING_CONFIG['weight_decay']}), "
-                f"CosineAnnealingLR, {TRAINING_CONFIG['epochs']} epochs\n\n"
+                f"CosineAnnealingLR, {TRAINING_CONFIG['epochs']} epochs, "
+                f"batch {TRAINING_CONFIG['batch_size']}\n"
+                "- **Custom CNN:** trained from scratch with RandomCrop, HFlip, "
+                "CutOut, MixUp, and CutMix augmentation\n"
+                "- **Transfer models (MobileNetV2, ResNet-18):** frozen ImageNet backbone; "
+                "only the classification head is trained; no augmentation\n\n"
                 "### Deployed Models\n" + _about_model_table_md() + "\n\n"
                 "### Links\n"
-                "- [GitHub](https://github.com/mrpouyaalavi/CIFAR-10-Image-Classification)\n"
+                "- [GitHub — source code]"
+                "(https://github.com/mrpouyaalavi/CIFAR-10-Image-Classification)\n"
+                "- [Live Demo — Hugging Face Spaces]"
+                "(https://mrpouyaalavi-cifar-10-image-classification.hf.space)\n"
                 "- [Portfolio](https://pouyaalavi.dev)\n\n"
                 "**Pouya Alavi Naeini** — BIT student, Macquarie University "
                 "(AI & Web/App Development).\n\n"
@@ -383,4 +406,4 @@ with gr.Blocks(title="CIFAR-10 — Pouya Alavi Naeini", css=_CSS) as demo:
 # Calling demo.launch() here also allows `python app.py` to work locally.
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(css=_CSS)

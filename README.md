@@ -12,7 +12,7 @@ license: mit
 
 <div align="center">
 
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=700&size=20&duration=2800&pause=700&color=EE4C2C&center=true&vCenter=true&width=920&lines=CIFAR-10+Deep+Learning+Image+Classification;Custom+CNN+vs+MobileNetV2+vs+ResNet-18;PyTorch+%C2%B7+Grad-CAM+%C2%B7+Gradio+%C2%B7+Hugging+Face+Spaces;5+Architectures+in+Notebook+%C2%B7+3+Deployed+Models+%C2%B7+86.91%25+Accuracy)](https://readme-typing-svg.demolab.com)
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=700&size=20&duration=2800&pause=700&color=EE4C2C&center=true&vCenter=true&width=920&lines=CIFAR-10+Deep+Learning+Image+Classification;Custom+CNN+vs+MobileNetV2+vs+ResNet-18;PyTorch+%C2%B7+Grad-CAM+%C2%B7+Gradio+%C2%B7+Hugging+Face+Spaces;5+Architectures+in+Notebook+%C2%B7+3+Deployed+Models+%C2%B7+87.48%25+Accuracy)](https://readme-typing-svg.demolab.com)
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)
@@ -66,28 +66,29 @@ The results have direct implications for:
 
 | Metric | Custom CNN | MobileNetV2 | ResNet-18 | Winner |
 |:-------|:----------:|:-----------:|:---------:|:------:|
-| **Test Accuracy** | 48.40% | **86.91%** | 82.10% | 🏆 MobileNetV2 |
+| **Test Accuracy** | 48.40% | 86.91% | **87.48%** | 🏆 ResNet-18 |
 | **Trainable Params** | 2,462,282 | 12,810 | **5,130** | 🏆 ResNet-18 |
-| **Model Size** | 9.42 MB | **8.76 MB** | 42.73 MB | 🏆 MobileNetV2 |
+| **Model Size** | 9.42 MB | **8.76 MB** | 44.80 MB | 🏆 MobileNetV2 |
 | **CPU Latency (batch 1)** | **1.38 ms** | 17.22 ms | 9.80 ms | 🏆 Custom CNN |
 | **Throughput** | **~724 FPS** | ~58 FPS | ~102 FPS | 🏆 Custom CNN |
 
 </div>
 
-> All numbers are measured empirically from the final evaluation checkpoints on the full 10,000-image CIFAR-10 test set (accuracy verified 2026-04-10; Custom CNN latency re-measured 2026-04-11 with 100 trials on Apple silicon CPU, batch size 1).
+> All numbers are measured empirically from the final evaluation checkpoints on the full 10,000-image CIFAR-10 test set (Custom CNN & MobileNetV2 verified 2026-04-10; ResNet-18 retrained and verified 2026-04-18 via cached-features linear probe; Custom CNN latency re-measured 2026-04-11 with 100 trials on Apple silicon CPU, batch size 1).
 
-> **Key finding:** MobileNetV2 achieves **86.91% accuracy** with just **0.5%** of the Custom CNN's trainable parameters — a **+38.5 percentage-point** lift for a **192× reduction in trainable weights**.
+> **Key finding:** ResNet-18 achieves **87.48% accuracy** with just **0.2%** of the Custom CNN's trainable parameters — a **+39.1 percentage-point** lift for a **480× reduction in trainable weights**. MobileNetV2 lands within a fraction of a point at **86.91%** with a different parameter/latency trade-off.
 
 ### Training Progression — Convergence Comparison
 
 ```text
 Epoch   Custom CNN (Val Acc)     MobileNetV2 (Val Acc)     ResNet-18 (Val Acc)
 ─────   ────────────────────     ─────────────────────     ───────────────────
-  1          21.0%                    85.88%                    80.12%
-  2          27.8%                    86.80%                    81.45%
-  3          32.4%                    86.91%                    81.90%
+  1          21.0%                    85.88%                    84.21%
+  2          27.8%                    86.80%                    85.64%
+  3          32.4%                    86.91%                    86.27%
   …            …                        …                          …
- 15          48.40%                   86.91%                    82.10%
+ 15          48.40%                   86.91%                    87.16%
+ 30           —                        —                        87.48%
 ```
 
 Both transfer-learning models (MobileNetV2 and ResNet-18) reach strong accuracy within 1–3 epochs and plateau quickly, because their frozen backbones already encode powerful ImageNet features. The Custom CNN is still improving across the full 15-epoch budget, highlighting the value of pretrained feature representations.
@@ -379,7 +380,7 @@ CIFAR-10-Image-Classification/
 2. **Pretrained features transfer well** — even from ImageNet-scale pretraining to CIFAR-10.
 3. **More trainable parameters do not guarantee better results** under a fixed training budget.
 4. **Data efficiency matters** — transfer learning reaches strong performance within a very small number of epochs.
-5. **Speed vs. accuracy trade-offs remain real** — the custom CNN is much faster on CPU, while MobileNetV2 wins decisively on accuracy.
+5. **Speed vs. accuracy trade-offs remain real** — the custom CNN is ~10× faster on CPU, while ResNet-18 (87.48%) and MobileNetV2 (86.91%) trade a little latency for ~+39 pp of accuracy.
 
 <br/>
 

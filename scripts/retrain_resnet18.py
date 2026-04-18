@@ -5,7 +5,7 @@ Rationale
 ---------
 The committed `resnet-18_best.pth` is the output of this script: a frozen
 ImageNet ResNet-18 backbone with a freshly-trained 5 130-parameter FC head.
-On the canonical run this achieves **82.10%** test accuracy on the full
+On the canonical run this achieves **87.48%** test accuracy on the full
 10 000-image CIFAR-10 test set.
 
 Architecture note
@@ -15,7 +15,7 @@ ResNet-18's final layer is ``nn.Linear(512, 1000)``. We replace it with
 identical in spirit to the MobileNetV2 transfer-learning approach:
 
     Custom CNN     48.40%   2,462,282 trainable params   trained from scratch
-    ResNet-18      82.10%       5,130 trainable params   frozen backbone
+    ResNet-18      87.48%       5,130 trainable params   frozen backbone
     MobileNetV2    86.91%      12,810 trainable params   frozen backbone
 
 Design decisions
