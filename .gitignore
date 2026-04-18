@@ -29,11 +29,8 @@ ENV/
 data/
 
 # ──────────────────────────────────────────────
-#  Model Weights
+#  Model Weights (too large for Git)
 # ──────────────────────────────────────────────
-# All checkpoint files are hosted on Hugging Face Hub
-# (mrpouyaalavi/cifar10-models) and downloaded at runtime.
-# Do NOT track .pth files in this repo.
 *.pth
 models/
 checkpoints/

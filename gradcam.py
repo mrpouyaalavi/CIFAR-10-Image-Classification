@@ -51,6 +51,7 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
+<<<<<<< HEAD
 # Device selection is centralised in model_utils so every surface
 # (CLI, Gradio demo, Grad-CAM, retrain script) uses identical logic.
 from model_utils import (  # noqa: E402
@@ -58,6 +59,8 @@ from model_utils import (  # noqa: E402
     select_device as _select_device,
 )
 
+=======
+>>>>>>> eb910c8 (Finalize HF app updates and remove tracked checkpoints)
 
 # ============================================================================
 #  Constants — Dataset Statistics & Class Labels
@@ -315,7 +318,7 @@ def overlay_heatmap(
     heatmap_resized = np.array(
         PILImage.fromarray(
             (heatmap * 255).astype(np.uint8)
-        ).resize((w, h), resample=PILImage.Resampling.BILINEAR)
+        ).resize((w, h), resample=PILImage.BILINEAR)
     ).astype(np.float32) / 255.0
 
     # Apply jet colourmap: blue (low activation) -> red (high activation)
@@ -378,14 +381,7 @@ def visualize_gradcam_grid(
 
     for row, idx in enumerate(indices):
         img_tensor, true_label = dataset[idx]
-        # NOTE: requires_grad_(True) on the INPUT is essential for
-        # frozen-backbone models (MobileNetV2 transfer learning). Because every
-        # backbone parameter has requires_grad=False, autograd will not build
-        # a backward graph through them unless *some* leaf in the graph asks
-        # for gradients. Marking the input tensor as a grad-requiring leaf
-        # makes backward hooks on the target conv fire correctly. Without
-        # this, gradcam._gradients stays None and .mean() raises AttributeError.
-        input_tensor = img_tensor.unsqueeze(0).to(device).requires_grad_(True)
+        input_tensor = img_tensor.unsqueeze(0).to(device)
 
         # Generate the Grad-CAM heatmap
         heatmap, pred_class, logits = gradcam(input_tensor)
@@ -428,35 +424,16 @@ def visualize_gradcam_grid(
 
 
 # ============================================================================
-#  Utilities — Model Loading
+#  Utilities — Device Selection & Model Loading
 # ============================================================================
-# Device selection is re-exported from model_utils at the top of this file.
 
-
-def _remap_legacy_keys(state_dict: dict) -> dict:
-    """
-    Remap state dict keys from legacy conv_block format to features.* format.
-
-    See predict.py for full documentation on the key-mapping logic.
-    """
-    if any(k.startswith("features.") for k in state_dict):
-        return state_dict
-    if not any(k.startswith("conv_block") for k in state_dict):
-        return state_dict
-
-    block_offsets = {"conv_block1": 0, "conv_block2": 8, "conv_block3": 16, "conv_block4": 24}
-    remapped = {}
-    for key, value in state_dict.items():
-        new_key = key
-        for block_name, offset in block_offsets.items():
-            if key.startswith(block_name + "."):
-                suffix = key[len(block_name) + 1:]
-                layer_idx = int(suffix.split(".")[0])
-                rest = ".".join(suffix.split(".")[1:])
-                new_key = f"features.{offset + layer_idx}.{rest}"
-                break
-        remapped[new_key] = value
-    return remapped
+def _select_device():
+    """Auto-detect the best available compute device (CUDA > MPS > CPU)."""
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
 
 
 def _load_model(name: str, device: torch.device):
@@ -483,12 +460,7 @@ def _load_model(name: str, device: torch.device):
             p = os.path.join(d, c)
             if os.path.isfile(p):
                 state = torch.load(p, map_location=device, weights_only=True)
-                if name == "custom_cnn":
-                    state = _remap_legacy_keys(state)
-                try:
-                    model.load_state_dict(state)
-                except RuntimeError:
-                    continue
+                model.load_state_dict(state)
                 model.to(device).eval()
                 print(f"Loaded {name} from {p}")
                 return model
@@ -506,20 +478,16 @@ def _get_target_layer(model, name: str):
         spatial structure — making it ideal for Grad-CAM.
 
     For Custom CNN:
-        Block 3's last Conv2d (features[22], the 256->256 conv) which
-        outputs an 8x8 feature map — a good balance between spatial
-        resolution and semantic richness. Block 4's Conv2d only produces
-        a 4x4 map (just 16 positions), which yields overly coarse heatmaps.
+        The last Conv2d in self.features (Block 4's 256->512 convolution).
 
     For MobileNetV2:
         The final inverted residual block (model.features[-1]), which outputs
         1280-channel feature maps at 7x7 spatial resolution.
     """
     if name == "custom_cnn":
-        # Block 3's last Conv2d at index 19 (256->256) outputs 8x8 spatial
-        # resolution, providing 64 meaningful positions for localisation.
-        # (Block 4's Conv2d at index 24 only outputs 4x4 — too coarse.)
-        return model.features[19]
+        for layer in reversed(list(model.features)):
+            if isinstance(layer, nn.Conv2d):
+                return layer
     elif name == "mobilenet":
         return model.features[-1]
     raise RuntimeError("Could not find target layer")
@@ -541,9 +509,8 @@ def main():
     parser.add_argument("--seed", type=int, default=42, help="Random seed for image selection")
     args = parser.parse_args()
 
-    # _select_device() (imported from model_utils) prints the device line
-    # exactly once per process, so we don't add our own to avoid duplicates.
     device = _select_device()
+    print(f"Device: {device}")
 
     # ── Prepare CIFAR-10 test sets with model-specific transforms ──
     # Each model needs its own dataset instance because preprocessing
@@ -604,7 +571,7 @@ def main():
             indices=indices,
             mean=mean,
             std=std,
-            model_name=pretty_model_name(model_name),
+            model_name=model_name.replace("_", " ").title(),
             save_path=save_path,
         )
 
