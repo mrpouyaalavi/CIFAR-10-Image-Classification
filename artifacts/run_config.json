@@ -1,13 +1,12 @@
 {
   "seed": 42,
-  "epochs": 15,
+  "epochs": 5,
   "batch_size": 128,
   "lr": 0.001,
   "weight_decay": 0.0001,
   "optimizer": "Adam",
   "loss_function": "CrossEntropyLoss",
-  "device": "mps",
-  "dataset_mode": "full",
+  "device": "auto",
   "subset_per_class": 1000,
   "num_classes": 10,
   "dataset": "CIFAR-10"
