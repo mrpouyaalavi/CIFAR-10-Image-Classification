@@ -211,20 +211,19 @@ def _key_findings_md() -> str:
     pp_delta    = top["test_accuracy"] - cnn["test_accuracy"]
     param_ratio = round(cnn["trainable_params"] / top["trainable_params"])
 
+    cnn_millions = cnn["trainable_params"] / 1_000_000
     return (
         f"- **ResNet-18** — {resnet['test_accuracy']:.2f}% accuracy with only "
-        f"{resnet['trainable_params']:,} trainable params "
-        f"(fewest trainable params of any deployed model).\n"
+        f"{resnet['trainable_params']:,} trainable parameters "
+        f"(fewest of any deployed model).\n"
         f"- **MobileNetV2** — {mobile['test_accuracy']:.2f}% accuracy with "
-        f"{mobile['trainable_params']:,} trainable params "
-        f"(frozen ImageNet backbone + linear head).\n"
+        f"{mobile['trainable_params']:,} trainable parameters "
+        f"(frozen backbone + linear head).\n"
         f"- **Custom CNN** — {cnn['test_accuracy']:.2f}% accuracy with "
-        f"{cnn['trainable_params']:,} trainable params "
-        f"(trained from scratch — establishes the baseline for the transfer-learning comparison).\n"
-        f"- The best transfer model (**{top['display_name']}**) achieves "
-        f"**+{pp_delta:.1f} pp** over the Custom CNN "
-        f"with **{param_ratio}×** fewer trainable parameters — the headline "
-        f"finding of the study."
+        f"{cnn_millions:.2f}M trainable parameters "
+        f"(trained from scratch — demonstrates the transfer-learning gap).\n"
+        f"- **ResNet-18** achieves +{pp_delta:.1f} percentage points over the Custom CNN "
+        f"with ~{param_ratio}× fewer trainable parameters."
     )
 
 
@@ -344,10 +343,8 @@ with gr.Blocks(title="CIFAR-10 — Pouya Alavi Naeini") as demo:
             gr.Markdown(
                 "### Architecture Benchmark\n\n"
                 "All models were evaluated under a consistent training budget on the full "
-                f"CIFAR-10 dataset — Adam lr={TRAINING_CONFIG['learning_rate']}, "
-                f"{TRAINING_CONFIG['epochs']} epochs, batch {TRAINING_CONFIG['batch_size']} — "
-                "with architecture-specific adaptations where required (e.g. no data augmentation "
-                "on frozen-backbone heads; ImageNet normalisation for transfer models).\n\n"
+                "CIFAR-10 dataset, using Adam, lr=0.001, 15 epochs, and batch size 128, "
+                "with architecture-specific adaptations where required.\n\n"
                 "> **Deployed in this demo:** Custom CNN, MobileNetV2, ResNet-18.  \n"
                 "> EfficientNet-B0 and ViT-Small are included in the table for study comparison only."
             )
