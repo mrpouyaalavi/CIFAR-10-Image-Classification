@@ -128,7 +128,7 @@ def test_resnet18_backbone_is_frozen() -> None:
 
     ResNet-18's transfer-learning story mirrors MobileNetV2: the entire
     pretrained backbone is frozen and only the replacement FC head is
-    trained. The 82.10% published accuracy depends on this freeze.
+    trained. The 87.48% published accuracy depends on this freeze.
     """
     model = build_resnet18(num_classes=10)
     for name, param in model.named_parameters():

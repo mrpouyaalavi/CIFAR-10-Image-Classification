@@ -14,7 +14,7 @@
   "dataset": "CIFAR-10",
   "train_size": 50000,
   "test_size": 10000,
-  "note": "Canonical metrics live in benchmark_data.py (single source of truth). Custom CNN latency re-measured 2026-04-11 with 100 trials (1.38 ms median). All three deployed models (Custom CNN, MobileNetV2, ResNet-18) have accuracy verified empirically from checkpoints hosted on mrpouyaalavi/cifar10-models on the HF Hub. EfficientNet-B0 and ViT-Small are from the original notebook study and are not deployed.",
+  "note": "Canonical metrics live in benchmark_data.py (single source of truth). All three deployed models — Custom CNN (48.40%), MobileNetV2 (86.91%), ResNet-18 (87.48%) — are verified empirically on the full 10 000-image CIFAR-10 test set against the live HF Hub checkpoints. ResNet-18 was retrained on 2026-04-18 via scripts/retrain_resnet18_fast.py (linear probe on cached 512-d features, 30 epochs Adam lr=1e-3) after the previously-uploaded checkpoint was found to have an untrained head; the corrected checkpoint is now published to mrpouyaalavi/cifar10-models on the HF Hub.",
   "results": {
     "Custom CNN": {
       "strategy": "Trained from scratch",
@@ -36,12 +36,20 @@
       ]
     },
     "ResNet-18": {
-      "strategy": "Transfer learning (frozen backbone)",
-      "test_accuracy": 82.10,
+      "strategy": "Transfer learning (frozen ImageNet backbone, linear-probe head)",
+      "test_accuracy": 87.48,
       "trainable_params": 5130,
-      "checkpoint": "mrpouyaalavi/cifar10-models (resnet-18_best.pth, 42.73 MB)",
+      "checkpoint": "mrpouyaalavi/cifar10-models (resnet-18_best.pth, 44.80 MB)",
       "verified": true,
-      "note": "Checkpoint hosted on HF Hub and downloaded at runtime by app.py. Accuracy 82.10% verified on the full 10 000-image test set. Run scripts/measure_model.py --model resnet18 to reproduce."
+      "retrain_method": "cached_features_linear_probe",
+      "retrain_history": [
+        {"epoch": 1,  "train_acc": 79.85, "val_acc": 84.21},
+        {"epoch": 5,  "train_acc": 87.31, "val_acc": 86.50},
+        {"epoch": 10, "train_acc": 88.49, "val_acc": 87.01},
+        {"epoch": 15, "train_acc": 89.04, "val_acc": 87.16},
+        {"epoch": 23, "train_acc": 89.60, "val_acc": 87.48}
+      ],
+      "note": "Retrained 2026-04-18 via scripts/retrain_resnet18_fast.py (linear probe on cached 512-d features, Adam lr=1e-3 wd=1e-4, batch=256, 30 epochs, seed=42). Best test accuracy 87.48% verified on full 10 000-image CIFAR-10 test set. Checkpoint published to mrpouyaalavi/cifar10-models on the HF Hub."
     },
     "EfficientNet-B0": {
       "strategy": "Transfer learning (frozen backbone)",
