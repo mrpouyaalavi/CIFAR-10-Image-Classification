@@ -1,50 +1,29 @@
 {
-  "timestamp": "2025-10-13T10:21:31",
+  "timestamp": "2026-04-10T17:38:00",
   "seed": 42,
-  "dataset": "CIFAR-10",
-  "subset_size": 10000,
-  "images_per_class": 1000,
+  "epochs": 15,
   "batch_size": 128,
-  "num_epochs": 5,
-  "learning_rate": 0.001,
+  "lr": 0.001,
   "weight_decay": 0.0001,
   "optimizer": "Adam",
   "loss_function": "CrossEntropyLoss",
+  "scheduler": "CosineAnnealingLR",
   "device": "mps",
-<<<<<<< HEAD
   "dataset_mode": "full",
   "num_classes": 10,
   "dataset": "CIFAR-10",
   "train_size": 50000,
   "test_size": 10000,
   "note": "Canonical metrics live in benchmark_data.py (single source of truth). All three deployed models — Custom CNN (48.40%), MobileNetV2 (86.91%), ResNet-18 (87.48%) — are verified empirically on the full 10 000-image CIFAR-10 test set against the live HF Hub checkpoints. ResNet-18 was retrained on 2026-04-18 via scripts/retrain_resnet18_fast.py (linear probe on cached 512-d features, 30 epochs Adam lr=1e-3) after the previously-uploaded checkpoint was found to have an untrained head; the corrected checkpoint is now published to mrpouyaalavi/cifar10-models on the HF Hub.",
-=======
-  "transforms": {
-    "custom_cnn": {
-      "train": "Compose(ToTensor(), Normalize(mean=(0.4914, 0.4822, 0.4465), std=(0.2023, 0.1994, 0.2010)))",
-      "test": "Compose(ToTensor(), Normalize(mean=(0.4914, 0.4822, 0.4465), std=(0.2023, 0.1994, 0.2010)))"
-    },
-    "mobilenetv2": {
-      "train": "Compose(Resize(224), ToTensor(), Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)))",
-      "test": "Compose(Resize(224), ToTensor(), Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)))"
-    }
-  },
->>>>>>> eb910c8 (Finalize HF app updates and remove tracked checkpoints)
   "results": {
     "Custom CNN": {
-      "test_accuracy": 55.96,
-      "total_parameters": 2462282,
-      "trainable_parameters": 2462282,
-      "model_size_mb": 9.40,
-      "inference_speed_ms": 0.84,
-      "training_history": {
-        "train_acc": [26.4, 39.3, 47.1, 51.9, 56.5],
-        "val_acc": [27.1, 36.8, 44.8, 49.1, 56.0],
-        "train_loss": [1.8497, 1.5678, 1.4069, 1.2992, 1.1884]
-      }
+      "strategy": "Trained from scratch",
+      "test_accuracy": 48.40,
+      "trainable_params": 2462282,
+      "checkpoint": "checkpoints/custom_cnn_best.pth",
+      "verified": true
     },
     "MobileNetV2": {
-<<<<<<< HEAD
       "strategy": "Transfer learning (frozen ImageNet backbone)",
       "test_accuracy": 86.91,
       "trainable_params": 12810,
@@ -87,19 +66,6 @@
       "checkpoint": "checkpoints/vit_small_best.pth",
       "verified": false,
       "note": "Reported from the original notebook study; checkpoint not committed due to size."
-=======
-      "test_accuracy": 85.53,
-      "total_parameters": 2236682,
-      "trainable_parameters": 12810,
-      "model_size_mb": 8.66,
-      "inference_speed_ms": 5.33,
-      "backbone_frozen": true,
-      "training_history": {
-        "train_acc": [74.2, 84.3, 85.5, 86.8, 87.2],
-        "val_acc": [83.0, 84.6, 85.4, 85.5, 85.5],
-        "train_loss": [0.9434, 0.5090, 0.4425, 0.4053, 0.3817]
-      }
->>>>>>> eb910c8 (Finalize HF app updates and remove tracked checkpoints)
     }
   }
 }
