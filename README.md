@@ -17,9 +17,9 @@ license: mit
 ![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
-![scikit-learn](https://img.shields.io/badge/scikit--learn-1.3+-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white)
-![Gradio](https://img.shields.io/badge/Gradio-Demo_App-F97316?style=for-the-badge&logo=gradio&logoColor=white)
+![Gradio](https://img.shields.io/badge/Gradio-5.29.0-F97316?style=for-the-badge&logo=gradio&logoColor=white)
 ![Hugging Face](https://img.shields.io/badge/🤗_Hugging_Face-Spaces-FFD21E?style=for-the-badge)
+![Tests](https://img.shields.io/badge/75_Tests-Pytest-6E9F18?style=for-the-badge)
 ![Jupyter](https://img.shields.io/badge/Jupyter-Notebook-F37626?style=for-the-badge&logo=jupyter&logoColor=white)
 
 </div>
@@ -30,9 +30,9 @@ license: mit
 
 # CIFAR-10 Image Classification — From Training to Deployment
 
-> **An end-to-end deep learning project that designs, trains, and evaluates multiple architectures on the CIFAR-10 benchmark, demonstrating the effectiveness of transfer learning compared with a custom CNN baseline across multiple architectures.**
+> **An end-to-end deep learning project that designs, trains, and evaluates multiple architectures on the CIFAR-10 benchmark, demonstrating the power of transfer learning compared with a custom CNN baseline — from raw pixels to a live interactive demo.**
 
-This project is a portfolio-grade machine learning study that goes beyond model training. It includes data augmentation pipelines (RandomCrop, CutOut, MixUp, CutMix), cosine annealing learning rate scheduling, progressive unfreezing, INT8 model quantisation, Grad-CAM interpretability visualisations, CLI inference tools, and a Gradio demo deployed on Hugging Face Spaces — all documented in a structured Jupyter notebook.
+Syllabus Sync is a production-grade, security-hardened web platform — this project is its ML counterpart: a portfolio-grade comparative study that goes beyond model training. It includes data augmentation pipelines (RandomCrop, CutOut, MixUp, CutMix), cosine annealing scheduling, progressive unfreezing, INT8 quantisation experiments, Grad-CAM interpretability visualisations, CLI inference tools, and a Gradio demo deployed on Hugging Face Spaces — all documented in a structured 14-section Jupyter notebook.
 
 **[📓 Explore the Notebook](cifar10%20image%20classification.ipynb)** &nbsp;·&nbsp; **[🚀 Live Demo](https://mrpouyaalavi-cifar-10-image-classification.hf.space)** &nbsp;·&nbsp; **[📊 Key Results](#-key-results--performance-benchmarks)**
 
@@ -42,17 +42,56 @@ This project is a portfolio-grade machine learning study that goes beyond model 
 
 <br/>
 
-## 🎯 Motivation & Research Question
+## 🎯 High-Level Impact & Research Question
 
-> _How much does a pretrained backbone actually help compared to training from scratch when models are evaluated under controlled conditions?_
+> _How much does a pretrained backbone actually help compared to training from scratch when models share the same training budget?_
 
-Deep learning practitioners often default to transfer learning without quantifying its advantage under comparable settings. This project answers that question through a controlled experiment: identical dataset, optimiser family, learning-rate scheduling, epoch budget, and augmentation strategy, with architecture and transfer-learning strategy as the key variables.
+Deep learning practitioners often default to transfer learning without quantifying its advantage under comparable conditions. This project answers that question through a controlled experiment: identical dataset, optimiser family, learning-rate schedule, epoch budget, and augmentation strategy — with architecture and transfer-learning strategy as the sole independent variables.
 
 The results have direct implications for:
 
-- **Model selection** in resource-constrained environments
-- **Training efficiency** when labelled data is limited
-- **Deployment strategy** when balancing latency, size, and accuracy
+- **Model selection** in resource-constrained and edge-deployment environments
+- **Training efficiency** when labelled data or compute budget is limited
+- **Deployment strategy** when balancing latency, model size, and accuracy
+
+<br/>
+
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
+
+<br/>
+
+## Screenshots
+
+<div align="center">
+
+| Live Demo | Model Comparison |
+|:---:|:---:|
+| <img width="400" alt="Live Demo — upload interface with model selector" src="https://github.com/user-attachments/assets/PLACEHOLDER_LIVE_DEMO"/> | <img width="400" alt="Model Comparison — benchmark table and key findings" src="https://github.com/user-attachments/assets/PLACEHOLDER_MODEL_COMPARISON"/> |
+
+</div>
+
+> **To update these screenshots:** drag each image into any GitHub issue comment box, copy the generated `![...](https://github.com/user-attachments/assets/...)` URL, and paste it above in place of `PLACEHOLDER_LIVE_DEMO` / `PLACEHOLDER_MODEL_COMPARISON`.
+
+<br/>
+
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
+
+<br/>
+
+## ✨ Key Features
+
+```text
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  🧠  3 deployed models in live demo · 5 architectures explored in notebook  ║
+║  📈  Full training pipeline with cosine annealing and progressive unfreezing ║
+║  🎲  Advanced augmentation: RandomCrop, CutOut, MixUp, CutMix               ║
+║  🔬  Grad-CAM interpretability for visual model explanations                 ║
+║  ⚡  INT8 dynamic quantisation experiments for deployment analysis           ║
+║  📊  Confusion matrices, training curves, and efficiency benchmarks          ║
+║  🖥️  Gradio demo on HF Spaces · weights served from HF Hub at runtime       ║
+║  🛠️  CLI inference for single image, batch, and full test-set evaluation    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
 
 <br/>
 
@@ -74,7 +113,7 @@ The results have direct implications for:
 
 </div>
 
-> All numbers are measured empirically from the final evaluation checkpoints on the full 10,000-image CIFAR-10 test set (Custom CNN & MobileNetV2 verified 2026-04-10; ResNet-18 retrained and verified 2026-04-18 via cached-features linear probe; Custom CNN latency re-measured 2026-04-11 with 100 trials on Apple silicon CPU, batch size 1).
+> All numbers are measured empirically on the full 10,000-image CIFAR-10 test set. ResNet-18 retrained and verified 2026-04-18 via cached-features linear probe.
 
 > **Key finding:** ResNet-18 achieves **87.48% accuracy** with just **0.2%** of the Custom CNN's trainable parameters — a **+39.1 percentage-point** lift for a **480× reduction in trainable weights**. MobileNetV2 lands within a fraction of a point at **86.91%** with a different parameter/latency trade-off.
 
@@ -91,100 +130,7 @@ Epoch   Custom CNN (Val Acc)     MobileNetV2 (Val Acc)     ResNet-18 (Val Acc)
  30           —                        —                        87.48%
 ```
 
-Both transfer-learning models (MobileNetV2 and ResNet-18) reach strong accuracy within 1–3 epochs and plateau quickly, because their frozen backbones already encode powerful ImageNet features. The Custom CNN is still improving across the full 15-epoch budget, highlighting the value of pretrained feature representations.
-
-<br/>
-
-<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
-
-<br/>
-
-## 🧠 Model Architectures
-
-### Custom CNN — 4-Block Design (Trained From Scratch)
-
-```text
-Input (3 × 32 × 32)
-  │
-  ├── Block 1: Conv(3→64) ×2 → BatchNorm → ReLU → MaxPool → Dropout(0.25)
-  ├── Block 2: Conv(64→128) ×2 → BatchNorm → ReLU → MaxPool → Dropout(0.25)
-  ├── Block 3: Conv(128→256) ×2 → BatchNorm → ReLU → MaxPool → Dropout(0.25)
-  ├── Block 4: Conv(256→512) → BatchNorm → ReLU → AdaptiveAvgPool
-  │
-  ├── Flatten → Dropout(0.5) → FC(512→256) → ReLU
-  └── Dropout(0.5) → FC(256→10) → Output
-```
-
-**Design decisions:**
-- **Kaiming He initialisation** for stable gradient flow
-- **Dual convolutions per block** before downsampling
-- **Global Average Pooling** to reduce classifier size
-- **Aggressive dropout** for regularisation
-
-### MobileNetV2 — Transfer Learning
-
-```text
-Pretrained MobileNetV2 backbone (frozen)
-  │
-  └── Classifier Head: Dropout(0.2) → Linear(1280 → 10)
-```
-
-**Strategy:** Freeze the feature extractor and train a lightweight classification head, then apply progressive unfreezing for stronger adaptation.
-
-### ResNet-18 — Transfer Learning
-
-```text
-Pretrained ResNet-18 backbone (frozen)
-  │
-  └── FC Head: Linear(512 → 10)
-```
-
-**Strategy:** Replace and train only the final fully connected layer. This model achieves strong accuracy with the fewest trainable parameters among the deployed models.
-
-<br/>
-
-<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
-
-<br/>
-
-## 🔍 Error Analysis & Confusion Patterns
-
-Both models consistently confuse visually similar classes, but MobileNetV2 makes significantly fewer mistakes:
-
-<div align="center">
-
-| Confusion Pair | Custom CNN Errors | MobileNetV2 Errors | Error Reduction | Root Cause |
-|:--------------|:-----------------:|:-------------------:|:---------------:|:-----------|
-| 🚚 Truck ↔ 🚗 Automobile | 432 | 97 | **78%** | Similar vehicle structure at 32×32 |
-| 🚢 Ship ↔ ✈️ Airplane | 375 | 83 | **78%** | Shared background cues |
-| 🐱 Cat ↔ 🐕 Dog | 333 | 243 | **27%** | Fine-grained mammal similarity |
-| 🐴 Horse ↔ 🐕 Dog | 293 | 68 | **77%** | Quadruped shape overlap |
-| 🐦 Bird ↔ 🦌 Deer | 180 | 78 | **57%** | Challenging low-resolution silhouettes |
-
-</div>
-
-> Measured empirically from confusion matrices on the full CIFAR-10 test set.
-
-<br/>
-
-<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
-
-<br/>
-
-## ✨ Key Features
-
-```text
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  🧠  3 deployed models in the live demo · 5 architectures explored in notebook║
-║  📈  Full training pipeline with cosine annealing and progressive unfreezing ║
-║  🎲  Advanced augmentation: RandomCrop, CutOut, MixUp, CutMix                ║
-║  🔬  Grad-CAM interpretability for visual model explanations                 ║
-║  ⚡  INT8 dynamic quantisation experiments for deployment analysis            ║
-║  📊  Confusion matrices, training curves, and efficiency benchmarks          ║
-║  🖥️  Gradio demo on HF Spaces with interactive image classification          ║
-║  🛠️  CLI inference tools for single image, batch, and test-set evaluation    ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-```
+Both transfer-learning models reach strong accuracy within 1–3 epochs because their frozen backbones already encode powerful ImageNet features. The Custom CNN is still improving across the full 15-epoch budget — highlighting the data efficiency of pretrained representations.
 
 <br/>
 
@@ -198,32 +144,66 @@ Both models consistently confuse visually similar classes, but MobileNetV2 makes
 
 | Layer | Technology |
 |:------|:-----------|
-| **Deep Learning** | PyTorch 2.0+ |
+| **Framework** | PyTorch 2.0+ |
 | **Pretrained Models** | torchvision (MobileNetV2, ResNet-18, EfficientNet-B0) |
-| **Dataset** | CIFAR-10 (60K images, 10 classes) |
+| **Dataset** | CIFAR-10 — 60K images, 10 classes |
 | **Evaluation** | scikit-learn (classification reports, confusion matrices) |
 | **Visualization** | Matplotlib, Seaborn |
 | **Interpretability** | Grad-CAM with PyTorch hooks |
-| **Demo App** | Gradio on Hugging Face Spaces |
-| **Environment** | Jupyter Notebook, Python 3.11 |
+| **Demo App** | Gradio 5.29.0 on Hugging Face Spaces |
+| **Model Weights** | Hugging Face Hub (`mrpouyaalavi/cifar10-models`) |
 | **Hardware** | Auto-detected: CUDA / Apple Silicon MPS / CPU |
 
 ### Training Hyperparameters
 
-The core training budget was kept consistent across experiments, with architecture-specific adaptations where required:
-
 ```yaml
 Optimiser      : Adam
-Learning Rate  : 0.001 (with Cosine Annealing decay)
+Learning Rate  : 0.001  (with Cosine Annealing decay)
 Weight Decay   : 1e-4
 Batch Size     : 128
-Epochs         : 15
+Epochs         : 15  (ResNet-18 linear probe: 30)
 Loss Function  : CrossEntropyLoss
 Training Set   : 50,000 images
 Test Set       : 10,000 images
 Augmentation   : RandomCrop(32,4), HFlip, CutOut(16), MixUp, CutMix
 Random Seed    : 42
 ```
+
+### Model Architectures
+
+**Custom CNN — 4-Block Design (trained from scratch)**
+```text
+Input (3 × 32 × 32)
+  ├── Block 1: Conv(3→64)×2   → BN → ReLU → MaxPool → Dropout(0.25)
+  ├── Block 2: Conv(64→128)×2 → BN → ReLU → MaxPool → Dropout(0.25)
+  ├── Block 3: Conv(128→256)×2 → BN → ReLU → MaxPool → Dropout(0.25)
+  ├── Block 4: Conv(256→512)  → BN → ReLU → AdaptiveAvgPool
+  └── Flatten → Dropout(0.5) → FC(512→256) → ReLU → Dropout(0.5) → FC(256→10)
+```
+
+**MobileNetV2 — frozen ImageNet backbone + `Dropout(0.2) → Linear(1280→10)`**
+
+**ResNet-18 — frozen ImageNet backbone + `Linear(512→10)` (5,130 trainable params)**
+
+<br/>
+
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
+
+<br/>
+
+## 🔍 Error Analysis & Confusion Patterns
+
+<div align="center">
+
+| Confusion Pair | Custom CNN | MobileNetV2 | Reduction | Root Cause |
+|:--------------|:-----------:|:-----------:|:---------:|:-----------|
+| 🚚 Truck ↔ 🚗 Automobile | 432 | 97 | **78%** | Similar vehicle structure at 32×32 |
+| 🚢 Ship ↔ ✈️ Airplane | 375 | 83 | **78%** | Shared background cues |
+| 🐱 Cat ↔ 🐕 Dog | 333 | 243 | **27%** | Fine-grained mammal similarity |
+| 🐴 Horse ↔ 🐕 Dog | 293 | 68 | **77%** | Quadruped shape overlap |
+| 🐦 Bird ↔ 🦌 Deer | 180 | 78 | **57%** | Challenging low-resolution silhouettes |
+
+</div>
 
 <br/>
 
@@ -235,11 +215,11 @@ Random Seed    : 42
 
 | # | Section | Description |
 |:-:|:--------|:------------|
-| 1 | **Environment & Config** | Seed setup, device detection, hyperparameter configuration |
+| 1 | **Environment & Config** | Seed setup, device detection, hyperparameter config |
 | 2 | **Data Preparation & Augmentation** | Dataset loading and augmentation pipeline |
 | 3 | **MixUp & CutMix** | Batch-level augmentation experiments |
-| 4 | **Model Architectures** | Custom CNN, MobileNetV2, ResNet-18, EfficientNet-B0, Vision Transformer |
-| 5 | **Training Pipeline** | Unified training loop with cosine annealing and AMP support |
+| 4 | **Model Architectures** | Custom CNN, MobileNetV2, ResNet-18, EfficientNet-B0, ViT |
+| 5 | **Training Pipeline** | Unified loop with cosine annealing and AMP support |
 | 6 | **Train All Models** | Controlled comparisons across architectures |
 | 7 | **Progressive Unfreezing** | MobileNetV2 fine-tuning schedule |
 | 8 | **Test Set Evaluation** | Full test-set accuracy and class-level metrics |
@@ -256,23 +236,80 @@ Random Seed    : 42
 
 <br/>
 
-## 🚀 Getting Started
+## 🎯 Project Governance
+
+### License
+Released under the **MIT License** — see [`LICENSE`](LICENSE) for details.
+
+### Maintainers
+
+| Name | Role |
+|:-----|:-----|
+| Pouya Alavi Naeini | Lead — ML pipeline, deployment, Gradio app |
+
+<br/>
+
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
+
+<br/>
+
+## Repository Layout
+
+```text
+app.py                             Gradio demo — HF Spaces entry point
+model_utils.py                     Shared model architectures & inference
+benchmark_data.py                  Canonical benchmark metrics (single source of truth)
+predict.py                         CLI inference tools
+gradcam.py                         Grad-CAM visualisations
+
+cifar10 image classification.ipynb Main 14-section notebook
+
+scripts/                           Retraining & measurement scripts
+  retrain_custom_cnn.py
+  retrain_mobilenetv2.py
+  retrain_resnet18.py
+  retrain_resnet18_fast.py         Cached-features linear probe (fast retraining)
+  measure_model.py
+
+tests/                             Pytest unit & integration tests (75 tests)
+  conftest.py  test_models.py  test_inference.py  test_preprocessing.py
+  test_gradcam.py  test_benchmark_data.py  test_checkpoint_remap.py  test_device.py
+
+results/                           Training results, confusion matrices, metadata
+examples/                          Example CIFAR-10 images for the live demo
+data/                              CIFAR-10 dataset (auto-downloaded via torchvision)
+
+requirements.txt                   HF Spaces / Gradio dependencies
+requirements-dev.txt               Development dependencies
+runtime.txt                        Python version pin
+pytest.ini                         Pytest configuration
+```
+
+> Model weights are hosted on [Hugging Face Hub](https://huggingface.co/mrpouyaalavi/cifar10-models) and downloaded automatically at runtime — no binaries in this repo.
+
+<br/>
+
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
+
+<br/>
+
+## Quick Start
 
 ### Prerequisites
-
-- Python 3.11 (as specified in `runtime.txt`)
+- Python `3.11` (as specified in `runtime.txt`)
 - pip or conda
-- GPU recommended, but not required
+- GPU recommended but not required — CPU works fine for inference
 
-### Installation
+### Setup
 
 ```bash
+# Clone and install
 git clone https://github.com/mrpouyaalavi/CIFAR-10-Image-Classification.git
 cd CIFAR-10-Image-Classification
 
 python -m venv .venv
-source .venv/bin/activate        # macOS / Linux
-# .venv\Scripts\activate         # Windows
+source .venv/bin/activate      # macOS / Linux
+# .venv\Scripts\activate       # Windows
 
 pip install -r requirements.txt
 ```
@@ -281,17 +318,8 @@ pip install -r requirements.txt
 
 ```bash
 jupyter notebook "cifar10 image classification.ipynb"
+# CIFAR-10 dataset downloads automatically on first run via torchvision
 ```
-
-> The CIFAR-10 dataset is downloaded automatically on first run via `torchvision.datasets`.
-
-<br/>
-
-<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
-
-<br/>
-
-## 💻 Usage
 
 ### CLI Inference
 
@@ -308,15 +336,29 @@ python gradcam.py --model all --num-images 6
 python gradcam.py --model all --image-index 0 42 100 --save results/gradcam/
 ```
 
-### Gradio Demo App
+### Run Tests
 
 ```bash
-python app.py
+pip install -r requirements-dev.txt
+pytest -q     # 75 tests
 ```
 
-Upload an image or select an example to compare deployed models with live predictions and confidence rankings.
+<br/>
 
-The live demo is hosted on **[Hugging Face Spaces](https://mrpouyaalavi-cifar-10-image-classification.hf.space)**.
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
+
+<br/>
+
+## Documentation Map
+
+| Document | Path |
+|:---------|:-----|
+| Benchmark metrics (single source of truth) | [benchmark_data.py](./benchmark_data.py) |
+| Training metadata & retrain history | [results/training_metadata.json](./results/training_metadata.json) |
+| ResNet-18 training history | [results/resnet18_training_history.json](./results/resnet18_training_history.json) |
+| Main notebook | [cifar10 image classification.ipynb](./cifar10%20image%20classification.ipynb) |
+| Live demo | [Hugging Face Spaces](https://mrpouyaalavi-cifar-10-image-classification.hf.space) |
+| Model weights | [HF Hub — mrpouyaalavi/cifar10-models](https://huggingface.co/mrpouyaalavi/cifar10-models) |
 
 <br/>
 
@@ -324,77 +366,13 @@ The live demo is hosted on **[Hugging Face Spaces](https://mrpouyaalavi-cifar-10
 
 <br/>
 
-## 📁 Project Structure
+## Acknowledgements
 
-```text
-CIFAR-10-Image-Classification/
-│
-├── app.py                                # Gradio demo (HF Spaces entry point)
-├── model_utils.py                        # Shared model architectures & inference
-├── benchmark_data.py                     # Canonical benchmark metrics
-├── predict.py                            # CLI inference tools
-├── gradcam.py                            # Grad-CAM visualisations
-│
-├── cifar10 image classification.ipynb    # Main notebook
-│
-├── scripts/                              # Retraining & measurement scripts
-│   ├── retrain_custom_cnn.py             #   Custom CNN training run
-│   ├── retrain_mobilenetv2.py            #   MobileNetV2 frozen-backbone training
-│   ├── retrain_resnet18.py               #   ResNet-18 frozen-backbone training
-│   └── measure_model.py                  #   Accuracy, latency & confusion pairs
-│
-├── tests/                                # Pytest unit & integration tests
-│   ├── conftest.py                       #   Shared fixtures
-│   ├── test_models.py                    #   Architecture smoke tests
-│   ├── test_inference.py                 #   predict() contract tests
-│   ├── test_preprocessing.py             #   Transform pipeline tests
-│   ├── test_gradcam.py                   #   Grad-CAM hook tests
-│   ├── test_benchmark_data.py            #   Metric consistency tests
-│   ├── test_checkpoint_remap.py          #   Checkpoint key migration tests
-│   └── test_device.py                    #   Device selection tests
-│
-├── results/                              # Training results & analysis
-├── artifacts/                            # Exported configs and run metadata
-├── examples/                             # Example images for the live demo
-├── data/                                 # CIFAR-10 dataset (auto-downloaded)
-│
-├── requirements.txt                      # Gradio / HF Spaces dependencies
-├── requirements-dev.txt                  # Development dependencies
-├── runtime.txt                           # Python version pin for HF Spaces
-├── pytest.ini                            # Pytest configuration
-├── LICENSE                               # MIT License
-└── .gitignore                            # Git ignore rules
-```
+Built with the support of the open-source community. This project benefits from:
 
-> Model weights are hosted on the [Hugging Face Hub](https://huggingface.co/mrpouyaalavi/cifar10-models) and downloaded automatically at runtime.
-
-<br/>
-
-<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
-
-<br/>
-
-## 💡 Key Takeaways
-
-1. **Transfer learning is highly efficient** — MobileNetV2 strongly outperforms a custom CNN while training only a tiny fraction of the parameters.
-2. **Pretrained features transfer well** — even from ImageNet-scale pretraining to CIFAR-10.
-3. **More trainable parameters do not guarantee better results** under a fixed training budget.
-4. **Data efficiency matters** — transfer learning reaches strong performance within a very small number of epochs.
-5. **Speed vs. accuracy trade-offs remain real** — the custom CNN is ~10× faster on CPU, while ResNet-18 (87.48%) and MobileNetV2 (86.91%) trade a little latency for ~+39 pp of accuracy.
-
-<br/>
-
-<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
-
-<br/>
-
-## 📜 License
-
-Released under the **MIT License**. See [`LICENSE`](LICENSE) for details.
-
-<br/>
-
-<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
+- [PyTorch](https://pytorch.org/) — Deep learning framework and pretrained model weights.
+- [Hugging Face](https://huggingface.co/) — Model hosting and Spaces deployment infrastructure.
+- [Gradio](https://www.gradio.app/) — Interactive demo framework.
 
 <br/>
 
@@ -416,6 +394,6 @@ Released under the **MIT License**. See [`LICENSE`](LICENSE) for details.
 
 <br/>
 
-**Built with PyTorch & Gradio · Deployed on Hugging Face Spaces · Designed for learning, research, and demonstration**
+*CIFAR-10 Image Classification is an independent open-source portfolio project.*
 
 </div>
