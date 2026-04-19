@@ -66,7 +66,7 @@ The results have direct implications for:
 
 | Live Demo | Model Comparison |
 |:---:|:---:|
-| <img width="400" alt="Live Demo — upload interface with model selector" src="https://github.com/user-attachments/assets/PLACEHOLDER_LIVE_DEMO"/> | <img width="400" alt="Model Comparison — benchmark table and key findings" src="https://github.com/user-attachments/assets/PLACEHOLDER_MODEL_COMPARISON"/> |
+| <img width="400" alt="Live Demo — upload interface with model selector" src="https://github.com/user-attachments/assets/PLACEHOLDER_LIVE_DEMO"/> | <img width="400" alt="Model Comparison — benchmark table and key findings" src="[https://github.com/user-attachments/assets/PLACEHOLDER_MODEL_COMPARISON"/](https://private-user-images.githubusercontent.com/204296594/580450268-0587e737-3bdb-433d-af26-762c22fd828a.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NzY2MTIxMTgsIm5iZiI6MTc3NjYxMTgxOCwicGF0aCI6Ii8yMDQyOTY1OTQvNTgwNDUwMjY4LTA1ODdlNzM3LTNiZGItNDMzZC1hZjI2LTc2MmMyMmZkODI4YS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwNDE5JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDQxOVQxNTE2NThaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT01OTZlZjRmNjgzN2Q3NWE5NTFkYTA5M2I2M2FmZmU2YzI3ZDRiOGI5NzM0ZmEyNzk2NzIyNWNjZmVjMTA2NjE0JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.8tHFoNQMUILppqQ_pxjvNqRhwLxRSYxE1jMCVpIGEcM)> |
 
 </div>
 
