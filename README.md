@@ -81,14 +81,14 @@ The results have direct implications for:
 
 ```text
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║  🧠  3 deployed models in live demo · 5 architectures explored in notebook  ║
+║  🧠  3 deployed models in live demo · 5 architectures explored in notebook   ║
 ║  📈  Full training pipeline with cosine annealing and progressive unfreezing ║
-║  🎲  Advanced augmentation: RandomCrop, CutOut, MixUp, CutMix               ║
+║  🎲  Advanced augmentation: RandomCrop, CutOut, MixUp, CutMix                ║
 ║  🔬  Grad-CAM interpretability for visual model explanations                 ║
-║  ⚡  INT8 dynamic quantisation experiments for deployment analysis           ║
+║  ⚡  INT8 dynamic quantisation experiments for deployment analysis            ║
 ║  📊  Confusion matrices, training curves, and efficiency benchmarks          ║
-║  🖥️  Gradio demo on HF Spaces · weights served from HF Hub at runtime       ║
-║  🛠️  CLI inference for single image, batch, and full test-set evaluation    ║
+║  🖥️  Gradio demo on HF Spaces · weights served from HF Hub at runtime        ║
+║  🛠️  CLI inference for single image, batch, and full test-set evaluation     ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
