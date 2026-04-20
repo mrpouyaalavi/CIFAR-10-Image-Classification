@@ -374,7 +374,7 @@ with gr.Blocks(title="CIFAR-10 — Pouya Alavi Naeini") as demo:
                 "These models were trained exclusively on **32×32 thumbnail-style** images. "
                 "High-resolution or complex real-world photos may produce unexpected "
                 "predictions — this is the classic *domain gap*. For best results use the "
-                "example images below, or simple close-up shots of a single object against "
+                "example images , or simple close-up shots of a single object against "
                 "a plain background.\n\n"
                 "### Training Setup\n"
                 f"- **Optimiser:** {TRAINING_CONFIG['optimizer']} "
