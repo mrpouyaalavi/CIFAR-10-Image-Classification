@@ -262,7 +262,7 @@ _CSS = """
 footer  { display: none !important; }
 """
 
-with gr.Blocks(title="CIFAR-10 — Pouya Alavi Naeini") as demo:
+with gr.Blocks(title="CIFAR-10 — Pouya Alavi Naeini", css=_CSS) as demo:
 
     gr.Markdown(
         "<h1 class='title'>🧠 CIFAR-10 Image Classification</h1>"
@@ -402,4 +402,4 @@ with gr.Blocks(title="CIFAR-10 — Pouya Alavi Naeini") as demo:
 # Calling demo.launch() here also allows `python app.py` to work locally.
 
 if __name__ == "__main__":
-    demo.launch(css=_CSS)
+    demo.launch()
