@@ -408,25 +408,70 @@ def load_model_by_name(name: str, device: torch.device) -> nn.Module:
 #  Preprocessing
 # ============================================================================
 
-def get_transform(model_name: str):
-    """Return the preprocessing pipeline for the given model.
+def _pad_to_square(img: Image.Image, fill: int = 114) -> Image.Image:
+    """Letterbox an image to a square by padding the shorter edge.
 
-    antialias=True is required in torchvision ≥ 0.15 to suppress the
-    deprecation warning and matches PIL's LANCZOS/BILINEAR behaviour.
+    This preserves the full content and correct aspect ratio. It is far
+    better than squashing (Resize to a fixed square), which compresses
+    landscape photos into distorted tall-thin representations the model
+    has never seen in training.
+
+    fill=114 is a neutral mid-gray that minimises perceptual impact after
+    CIFAR normalisation.  For already-square inputs this is a no-op.
     """
-    import torchvision.transforms as transforms
+    from PIL import ImageOps
+    w, h = img.size
+    if w == h:
+        return img
+    max_side = max(w, h)
+    pad_l = (max_side - w) // 2
+    pad_t = (max_side - h) // 2
+    pad_r = max_side - w - pad_l
+    pad_b = max_side - h - pad_t
+    return ImageOps.expand(img, border=(pad_l, pad_t, pad_r, pad_b), fill=(fill, fill, fill))
+
+
+def get_transform(model_name: str):
+    """Return the inference preprocessing pipeline for the given model.
+
+    Aspect-ratio handling
+    ---------------------
+    Real uploaded images are almost never square.  Two strategies are used:
+
+    • Custom CNN (32×32 native input):
+        Letterbox (pad short edge with neutral gray) → Resize(32, 32).
+        Letterboxing preserves the full image content and correct
+        proportions; a direct Resize(32,32) would squash a 16:9 landscape
+        photo into a 1.8× taller representation the CNN has never seen.
+        CIFAR-10 test images are already 32×32 square, so the letterbox
+        step is a no-op for benchmark evaluation.
+
+    • ImageNet models (MobileNetV2, ResNet-18) at 224×224:
+        Resize(shorter edge → 256) → CenterCrop(224).
+        This is the canonical ImageNet evaluation protocol and matches the
+        distribution the pretrained backbone expects.  The old direct
+        Resize((224,224)) squashed landscape photos by up to 1.8× in one
+        axis, producing severe distortion that degraded demo quality on
+        real uploads without affecting CIFAR-10 benchmark numbers (CIFAR
+        images are square, so squash = uniform scale for benchmark eval).
+
+    antialias=True is required in torchvision ≥ 0.15.
+    """
+    import torchvision.transforms as T
 
     if model_name == "Custom CNN":
-        return transforms.Compose([
-            transforms.Resize((32, 32), antialias=True),
-            transforms.ToTensor(),
-            transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
+        return T.Compose([
+            T.Lambda(_pad_to_square),             # letterbox → square (no-op if already square)
+            T.Resize((32, 32), antialias=True),
+            T.ToTensor(),
+            T.Normalize(CIFAR_MEAN, CIFAR_STD),
         ])
     else:
-        return transforms.Compose([
-            transforms.Resize((224, 224), antialias=True),
-            transforms.ToTensor(),
-            transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
+        return T.Compose([
+            T.Resize(256, antialias=True),        # resize shorter edge → 256, keep aspect ratio
+            T.CenterCrop(224),                    # standard ImageNet center crop
+            T.ToTensor(),
+            T.Normalize(IMAGENET_MEAN, IMAGENET_STD),
         ])
 
 

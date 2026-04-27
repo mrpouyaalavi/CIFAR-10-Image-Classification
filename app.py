@@ -139,14 +139,43 @@ EXAMPLE_IMAGES: list[str] = _prepare_examples()
 
 # ── Prediction functions ──────────────────────────────────────────────────────
 
-def classify(image: Image.Image | None, model_name: str) -> dict[str, float]:
-    """Single-model inference.  Returns {class: probability} for gr.Label."""
+def _confidence_note(top_conf: float, model_name: str) -> str:
+    """Return a short markdown note interpreting the top-1 confidence value.
+
+    Thresholds are calibrated for CIFAR-10 linear-probe models:
+      ≥ 80 %  — model is fairly certain; typical for in-distribution images.
+      50–80 % — uncertain; common when the image has unusual lighting, blur,
+                 or partial occlusion, or when the subject is in a CIFAR class
+                 that has intrinsically high visual overlap with others.
+      < 50 %  — strong domain-gap signal.  CIFAR-10 models were trained
+                 exclusively on 32×32 thumbnail-style images.  High-resolution
+                 or complex real-world photos look very different from training
+                 data, so low confidence is expected and honest, not a bug.
+    """
+    if top_conf >= 80:
+        return f"✅ **High confidence** ({top_conf:.0f}%) — prediction is reliable."
+    if top_conf >= 50:
+        return (
+            f"⚠️ **Moderate confidence** ({top_conf:.0f}%) — prediction is plausible "
+            f"but uncertain. Try a simpler, centred image with a plain background."
+        )
+    return (
+        f"🔴 **Low confidence** ({top_conf:.0f}%) — likely **domain gap**. "
+        f"{'Custom CNN was trained on 32×32 thumbnails and struggles on real photos. ' if model_name == 'Custom CNN' else ''}"
+        f"Use the example images below for reliable results."
+    )
+
+
+def classify(image: Image.Image | None, model_name: str) -> tuple[dict[str, float], str]:
+    """Single-model inference.  Returns ({class: probability}, confidence_note)."""
     if image is None:
-        return {}
+        return {}, ""
     try:
         model = _get_model(model_name)
         results = predict(model, image.convert("RGB"), model_name, DEVICE, top_k=10)
-        return {cls: round(conf / 100.0, 4) for cls, conf in results}
+        probs = {cls: round(conf / 100.0, 4) for cls, conf in results}
+        note = _confidence_note(results[0][1], model_name)
+        return probs, note
     except Exception as exc:
         log.error("classify() failed for %s: %s", model_name, exc)
         raise gr.Error(f"Inference failed for {model_name}. Check Space logs for details.") from exc
@@ -280,10 +309,17 @@ with gr.Blocks(title="CIFAR-10 — Pouya Alavi Naeini", css=_CSS) as demo:
                 "They work best on simple, centred images of a single object — "
                 "use the example images below for reliable results.\n"
                 ">\n"
-                "> On real-world high-resolution photos the Custom CNN (trained on 32×32) often *looks* "
-                "more plausible because its 32×32 resize pipeline matches its training distribution, "
-                "while MobileNetV2 sees a 224×224 upscale it was never trained on. "
-                "This is the classic **domain gap** — not evidence that the smaller model is better."
+                "> **Preprocessing note:** All models now use aspect-ratio-preserving "
+                "preprocessing. Landscape or portrait uploads are letterboxed / "
+                "center-cropped rather than squashed, which significantly improves "
+                "results on real-world photos.\n"
+                ">\n"
+                "> **Domain gap:** Even with correct preprocessing, these models were "
+                "trained exclusively on 32×32 thumbnail-style images. Complex real-world "
+                "photos (motion blur, cluttered backgrounds, unusual angles) will produce "
+                "lower confidence — this is expected and honest, not a bug. Low confidence "
+                "is itself useful information: it tells you the image looks unlike what the "
+                "model trained on."
             )
 
             with gr.Row():
@@ -301,11 +337,12 @@ with gr.Blocks(title="CIFAR-10 — Pouya Alavi Naeini", css=_CSS) as demo:
 
                 with gr.Column(scale=1):
                     single_out = gr.Label(num_top_classes=5, label="Predictions")
+                    confidence_note = gr.Markdown("")
 
             predict_btn.click(
                 fn=classify,
                 inputs=[img_in, model_dd],
-                outputs=single_out,
+                outputs=[single_out, confidence_note],
             )
 
             if EXAMPLE_IMAGES:
