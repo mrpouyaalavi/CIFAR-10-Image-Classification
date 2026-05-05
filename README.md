@@ -30,9 +30,9 @@ license: mit
 
 # CIFAR-10 Image Classification — From Training to Deployment
 
-> **An end-to-end deep learning project that designs, trains, and evaluates multiple architectures on the CIFAR-10 benchmark, demonstrating the power of transfer learning compared with a custom CNN baseline — from raw pixels to a live interactive demo.**
+> **An end-to-end deep learning project that trains, evaluates, and compares multiple architectures on the CIFAR-10 dataset, showing the practical impact of transfer learning compared with a custom CNN baseline and extending the results into a live interactive demo.**
 
-Syllabus Sync is a production-grade, security-hardened web platform — this project is its ML counterpart: a portfolio-grade comparative study that goes beyond model training. It includes data augmentation pipelines (RandomCrop, CutOut, MixUp, CutMix), cosine annealing scheduling, progressive unfreezing, INT8 quantisation experiments, Grad-CAM interpretability visualisations, CLI inference tools, and a Gradio demo deployed on Hugging Face Spaces — all documented in a structured 14-section Jupyter notebook.
+This project goes beyond model training. It includes augmentation pipelines, cosine annealing scheduling, progressive unfreezing, INT8 quantisation experiments, Grad-CAM interpretability visualisations, CLI inference tools, and a Gradio demo deployed on Hugging Face Spaces — all documented in a structured Jupyter notebook.
 
 **[📓 Explore the Notebook](cifar10%20image%20classification.ipynb)** &nbsp;·&nbsp; **[🚀 Live Demo](https://cifar10.pouyaalavi.dev)** &nbsp;·&nbsp; **[📊 Key Results](#-key-results--performance-benchmarks)**
 
@@ -380,7 +380,7 @@ Built with the support of the open-source community. This project benefits from:
 ### `> ping --author`
 
 ```text
-> Target     : Pouya Alavi Naeini — AI & Full-Stack Developer
+> Target     : Pouya Alavi Naeini — Software Engineer | Applied AI/ML
 > University : Macquarie University, Sydney, NSW
 > Major      : B.IT — Artificial Intelligence & Web/App Development
 > Status     : [●] ONLINE — open to grad & junior opportunities
@@ -393,6 +393,6 @@ Built with the support of the open-source community. This project benefits from:
 
 <br/>
 
-*CIFAR-10 Image Classification is an independent open-source portfolio project.*
+*CIFAR-10 Image Classification is an independent, open-source portfolio project.*
 
 </div>
