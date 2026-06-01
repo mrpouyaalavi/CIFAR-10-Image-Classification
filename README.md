@@ -19,7 +19,7 @@ license: mit
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
 ![Gradio](https://img.shields.io/badge/Gradio-5.29.0-F97316?style=for-the-badge&logo=gradio&logoColor=white)
 ![Hugging Face](https://img.shields.io/badge/🤗_Hugging_Face-Spaces-FFD21E?style=for-the-badge)
-![Tests](https://img.shields.io/badge/75_Tests-Pytest-6E9F18?style=for-the-badge)
+![Tests](https://img.shields.io/badge/79_Tests-Pytest-6E9F18?style=for-the-badge)
 ![Jupyter](https://img.shields.io/badge/Jupyter-Notebook-F37626?style=for-the-badge&logo=jupyter&logoColor=white)
 
 </div>
@@ -30,9 +30,9 @@ license: mit
 
 # CIFAR-10 Image Classification — From Training to Deployment
 
-> **An end-to-end deep learning project that trains, evaluates, and compares multiple architectures on the CIFAR-10 dataset, showing the practical impact of transfer learning compared with a custom CNN baseline and extending the results into a live interactive demo.**
+> **An end-to-end deep learning portfolio project that trains, evaluates, and compares multiple architectures on the CIFAR-10 dataset, demonstrating the practical impact of transfer learning over a custom CNN baseline — and packaging the results into a live interactive demo.**
 
-This project goes beyond model training. It includes augmentation pipelines, cosine annealing scheduling, progressive unfreezing, INT8 quantisation experiments, Grad-CAM interpretability visualisations, CLI inference tools, and a Gradio demo deployed on Hugging Face Spaces — all documented in a structured Jupyter notebook.
+This project goes beyond model training. It includes augmentation pipelines, cosine annealing scheduling, progressive unfreezing, INT8 quantisation experiments (notebook), Grad-CAM interpretability visualisations, CLI inference tools, and a Gradio demo deployed on Hugging Face Spaces — all documented in a structured Jupyter notebook.
 
 **[📓 Explore the Notebook](cifar10%20image%20classification.ipynb)** &nbsp;·&nbsp; **[🚀 Live Demo](https://cifar10.pouyaalavi.dev)** &nbsp;·&nbsp; **[📊 Key Results](#-key-results--performance-benchmarks)**
 
@@ -42,13 +42,13 @@ This project goes beyond model training. It includes augmentation pipelines, cos
 
 <br/>
 
-## 🎯 High-Level Impact & Research Question
+## 🎯 Research Question
 
-> _How much does a pretrained backbone actually help compared to training from scratch when models share the same training budget?_
+> _How much does a pretrained backbone actually help compared to training from scratch when both models share the same training setup?_
 
-Deep learning practitioners often default to transfer learning without quantifying its advantage under comparable conditions. This project answers that question through a controlled experiment: identical dataset, optimiser family, learning-rate schedule, epoch budget, and augmentation strategy — with architecture and transfer-learning strategy as the sole independent variables.
+A common assumption in deep learning is that transfer learning always wins — but by how much, and under what conditions? This project answers that question with a controlled comparison: the same dataset, optimiser, learning-rate schedule, epoch budget, and augmentation pipeline across all models, with architecture and pretraining strategy as the only variables.
 
-The results have direct implications for:
+The results are relevant to:
 
 - **Model selection** in resource-constrained and edge-deployment environments
 - **Training efficiency** when labelled data or compute budget is limited
@@ -112,9 +112,9 @@ The results have direct implications for:
 
 </div>
 
-> All numbers are measured empirically on the full 10,000-image CIFAR-10 test set. ResNet-18 retrained and verified 2026-04-18 via cached-features linear probe.
+> Accuracy results were evaluated on the 10,000-image CIFAR-10 test set. Latency and throughput figures are hardware-dependent and should be interpreted as project benchmark results rather than universal model performance. ResNet-18 retrained and verified 2026-04-18 via cached-features linear probe.
 
-> **Key finding:** ResNet-18 achieves **87.48% accuracy** with just **0.2%** of the Custom CNN's trainable parameters — a **+39.1 percentage-point** lift for a **480× reduction in trainable weights**. MobileNetV2 lands within a fraction of a point at **86.91%** with a different parameter/latency trade-off.
+> **Key finding:** In this experiment, ResNet-18 achieved **87.48% accuracy** with just **0.2%** of the Custom CNN's trainable parameters — a **+39.1 percentage-point** lift for a **480× reduction in trainable weights**. MobileNetV2 landed within a fraction of a point at **86.91%** with a different parameter/latency trade-off.
 
 ### Training Progression — Convergence Comparison
 
@@ -144,10 +144,11 @@ Both transfer-learning models reach strong accuracy within 1–3 epochs because 
 | Layer | Technology |
 |:------|:-----------|
 | **Framework** | PyTorch 2.0+ |
-| **Pretrained Models** | torchvision (MobileNetV2, ResNet-18, EfficientNet-B0) |
+| **Deployed Models** | torchvision (MobileNetV2, ResNet-18) + Custom CNN |
+| **Notebook-only Models** | EfficientNet-B0, ViT (Small) — explored in notebook, not deployed |
 | **Dataset** | CIFAR-10 — 60K images, 10 classes |
 | **Evaluation** | scikit-learn (classification reports, confusion matrices) |
-| **Visualization** | Matplotlib, Seaborn |
+| **Visualization** | Matplotlib (deployed) · Seaborn (notebook) |
 | **Interpretability** | Grad-CAM with PyTorch hooks |
 | **Demo App** | Gradio 5.29.0 on Hugging Face Spaces |
 | **Model Weights** | Hugging Face Hub (`mrpouyaalavi/cifar10-models`) |
@@ -270,7 +271,7 @@ scripts/                           Retraining & measurement scripts
   retrain_resnet18_fast.py         Cached-features linear probe (fast retraining)
   measure_model.py
 
-tests/                             Pytest unit & integration tests (75 tests)
+tests/                             Pytest unit & integration tests (79 tests)
   conftest.py  test_models.py  test_inference.py  test_preprocessing.py
   test_gradcam.py  test_benchmark_data.py  test_checkpoint_remap.py  test_device.py
 
@@ -339,7 +340,7 @@ python gradcam.py --model all --image-index 0 42 100 --save results/gradcam/
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q     # 75 tests
+pytest -q     # 79 tests
 ```
 
 <br/>
