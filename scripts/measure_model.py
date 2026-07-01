@@ -194,6 +194,7 @@ def measure_accuracy_and_calibration(
         "conf_when_wrong_pct": round(100.0 * conf_wrong_sum / max(n_wrong, 1), 2),
         "per_class_accuracy": per_class_acc,
         "confusion_pairs": pair_counts,
+        "confusion_matrix": confusion,
     }
 
 
@@ -248,6 +249,9 @@ def main() -> None:
     parser.add_argument("--latency-trials", type=int, default=50)
     parser.add_argument("--json-out", type=Path, default=None,
                         help="Optional path to dump the result JSON.")
+    parser.add_argument("--confusion-matrix-out", type=Path, default=None,
+                        help="Optional path to merge the full 10x10 confusion "
+                             "matrix into (matches results/confusion_matrices.json).")
     args = parser.parse_args()
 
     if args.device == "auto":
@@ -265,6 +269,7 @@ def main() -> None:
     print("Measuring accuracy + confidence + confusion pairs ...")
     t0 = time.time()
     metrics = measure_accuracy_and_calibration(model, loader, device)
+    confusion_matrix = metrics.pop("confusion_matrix")
     print(f"  done in {time.time() - t0:.1f}s")
     print()
 
@@ -307,6 +312,19 @@ def main() -> None:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(out, indent=2))
         print(f"JSON written: {args.json_out}")
+
+    if args.confusion_matrix_out:
+        path = args.confusion_matrix_out
+        existing = json.loads(path.read_text()) if path.exists() else {
+            "classes": list(CLASS_NAMES),
+            "source": "Computed from deployed checkpoints against the full "
+                       "10,000-image CIFAR-10 test set. Rows=true, cols=predicted.",
+            "matrices": {},
+        }
+        existing["matrices"][pretty_model_name(args.model)] = confusion_matrix
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(existing, indent=2))
+        print(f"Confusion matrix merged into: {path}")
 
 
 if __name__ == "__main__":
