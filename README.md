@@ -16,10 +16,10 @@ license: mit
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-f59e0b?style=for-the-badge)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
-![Gradio](https://img.shields.io/badge/Gradio-5.29.0-F97316?style=for-the-badge&logo=gradio&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.1+-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
+![Gradio](https://img.shields.io/badge/Gradio-5.29+-F97316?style=for-the-badge&logo=gradio&logoColor=white)
 ![Hugging Face](https://img.shields.io/badge/🤗_Hugging_Face-Spaces-FFD21E?style=for-the-badge)
-![Tests](https://img.shields.io/badge/79_Tests-Pytest-6E9F18?style=for-the-badge)
+![Tests](https://img.shields.io/badge/79_Tests_Passing-Pytest-6E9F18?style=for-the-badge)
 ![Jupyter](https://img.shields.io/badge/Jupyter-Notebook-F37626?style=for-the-badge&logo=jupyter&logoColor=white)
 
 </div>
@@ -32,7 +32,7 @@ license: mit
 
 > **An end-to-end deep learning portfolio project that trains, evaluates, and compares multiple architectures on the CIFAR-10 dataset, demonstrating the practical impact of transfer learning over a custom CNN baseline — and packaging the results into a live interactive demo.**
 
-This project goes beyond model training. It includes augmentation pipelines, cosine annealing scheduling, progressive unfreezing, INT8 quantisation experiments (notebook), Grad-CAM interpretability visualisations, CLI inference tools, and a Gradio demo deployed on Hugging Face Spaces — all documented in a structured Jupyter notebook.
+This project goes beyond model training. It includes augmentation pipelines, cosine annealing scheduling, progressive unfreezing, INT8 quantisation experiments (notebook), Grad-CAM interpretability visualisations (CLI + notebook), CLI inference tools, and a Gradio demo deployed on Hugging Face Spaces — all documented in a structured Jupyter notebook.
 
 **[📓 Explore the Notebook](cifar10%20image%20classification.ipynb)** &nbsp;·&nbsp; **[🚀 Live Demo](https://cifar10.pouyaalavi.dev)** &nbsp;·&nbsp; **[📊 Key Results](#-key-results--performance-benchmarks)**
 
@@ -53,6 +53,23 @@ The results are relevant to:
 - **Model selection** in resource-constrained and edge-deployment environments
 - **Training efficiency** when labelled data or compute budget is limited
 - **Deployment strategy** when balancing latency, model size, and accuracy
+
+<br/>
+
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
+
+<br/>
+
+## 🧭 What This Project Demonstrates
+
+This isn't just a training script — it's an end-to-end applied ML workflow:
+
+- **Controlled experimentation** — one dataset, optimiser, schedule, and augmentation pipeline held constant across five architectures, isolating architecture and pretraining as the only variables.
+- **Transfer learning impact, quantified** — a from-scratch CNN vs. two frozen-backbone ImageNet models, with the accuracy/parameter trade-off measured, not asserted.
+- **Evaluation beyond top-1 accuracy** — confusion-pair analysis, per-class breakdowns, and confidence calibration on the full 10,000-image test set.
+- **Interpretability** — Grad-CAM visualisations (CLI + notebook) showing *where* each model is looking when it makes a prediction.
+- **Deployment** — a working Gradio app on Hugging Face Spaces that loads weights from the Hub at runtime, with a custom domain in front of it.
+- **Engineering hygiene** — a 79-test Pytest suite, a single source-of-truth benchmark module (`benchmark_data.py`), and CLI tooling for reproducible inference.
 
 <br/>
 
@@ -84,8 +101,8 @@ The results are relevant to:
 ║  🧠  3 deployed models in live demo · 5 architectures explored in notebook   ║
 ║  📈  Full training pipeline with cosine annealing and progressive unfreezing ║
 ║  🎲  Advanced augmentation: RandomCrop, CutOut, MixUp, CutMix                ║
-║  🔬  Grad-CAM interpretability for visual model explanations                 ║
-║  ⚡  INT8 dynamic quantisation experiments for deployment analysis            ║
+║  🔬  Grad-CAM interpretability via CLI + notebook (not in the live app UI)   ║
+║  ⚡  INT8 dynamic quantisation experiments (notebook only)                    ║
 ║  📊  Confusion matrices, training curves, and efficiency benchmarks          ║
 ║  🖥️  Gradio demo on HF Spaces · weights served from HF Hub at runtime        ║
 ║  🛠️  CLI inference for single image, batch, and full test-set evaluation     ║
@@ -143,16 +160,31 @@ Both transfer-learning models reach strong accuracy within 1–3 epochs because 
 
 | Layer | Technology |
 |:------|:-----------|
-| **Framework** | PyTorch 2.0+ |
+| **Framework** | PyTorch 2.1+ |
 | **Deployed Models** | torchvision (MobileNetV2, ResNet-18) + Custom CNN |
-| **Notebook-only Models** | EfficientNet-B0, ViT (Small) — explored in notebook, not deployed |
+| **Notebook-only Models** | EfficientNet-B0, ViT (Small, custom implementation) — explored in notebook, not deployed |
 | **Dataset** | CIFAR-10 — 60K images, 10 classes |
 | **Evaluation** | scikit-learn (classification reports, confusion matrices) |
 | **Visualization** | Matplotlib (deployed) · Seaborn (notebook) |
-| **Interpretability** | Grad-CAM with PyTorch hooks |
-| **Demo App** | Gradio 5.29.0 on Hugging Face Spaces |
+| **Interpretability** | Grad-CAM with PyTorch hooks — CLI (`gradcam.py`) + notebook only |
+| **Demo App** | Gradio ≥5.29 on Hugging Face Spaces |
 | **Model Weights** | Hugging Face Hub (`mrpouyaalavi/cifar10-models`) |
 | **Hardware** | Auto-detected: CUDA / Apple Silicon MPS / CPU |
+
+### Feature Status
+
+| Feature | Status |
+|:--------|:-------|
+| Custom CNN, MobileNetV2, ResNet-18 training & inference | ✅ Deployed (live demo + CLI) |
+| EfficientNet-B0, ViT-Small | 📓 Notebook-only (not deployed) |
+| RandomCrop, HFlip, CutOut, MixUp, CutMix augmentation | 📓 Notebook-only training pipeline |
+| Cosine annealing LR schedule | 📓 Notebook-only |
+| Progressive unfreezing (MobileNetV2) | 🧪 Experiment (notebook, Section 6) |
+| AMP (mixed precision) support | 📓 Notebook-only |
+| Grad-CAM interpretability | 🛠️ CLI + notebook (`gradcam.py`) — not in the Gradio app UI |
+| INT8 dynamic quantisation | 🧪 Experiment (notebook, Section 13) |
+| CLI single-image / batch / full test-set inference | ✅ Deployed (`predict.py`) |
+| Hugging Face Hub runtime weight loading | ✅ Deployed (app + CLI) |
 
 ### Training Hyperparameters
 
@@ -215,20 +247,20 @@ Input (3 × 32 × 32)
 
 | # | Section | Description |
 |:-:|:--------|:------------|
-| 1 | **Environment & Config** | Seed setup, device detection, hyperparameter config |
-| 2 | **Data Preparation & Augmentation** | Dataset loading and augmentation pipeline |
-| 3 | **MixUp & CutMix** | Batch-level augmentation experiments |
-| 4 | **Model Architectures** | Custom CNN, MobileNetV2, ResNet-18, EfficientNet-B0, ViT |
-| 5 | **Training Pipeline** | Unified loop with cosine annealing and AMP support |
-| 6 | **Train All Models** | Controlled comparisons across architectures |
-| 7 | **Progressive Unfreezing** | MobileNetV2 fine-tuning schedule |
-| 8 | **Test Set Evaluation** | Full test-set accuracy and class-level metrics |
-| 9 | **Confusion Matrices** | Side-by-side error analysis |
-| 10 | **Training Curves** | Loss, accuracy, and LR schedule visualisation |
-| 11 | **Error Analysis** | Misclassification deep-dive |
-| 12 | **Efficiency Benchmarks** | Parameters, size, latency, and throughput |
-| 13 | **Model Quantization** | INT8 quantisation experiments |
-| 14 | **Save Artifacts** | Export config, results, and metadata |
+| 1 | **Environment & Configuration** | Seed setup, device detection, hyperparameter config |
+| 2 | **Data Preparation & Augmentation** | Dataset loading, RandomCrop/HFlip/CutOut, MixUp & CutMix |
+| 3 | **Model Architectures** | Custom CNN, MobileNetV2, ResNet-18, EfficientNet-B0, ViT (Small) |
+| 4 | **Training Pipeline** | Unified loop with cosine annealing and AMP support |
+| 5 | **Train All Models** | Controlled comparisons across all five architectures |
+| 6 | **Progressive Unfreezing** | MobileNetV2 backbone fine-tuning schedule |
+| 7 | **Test Set Evaluation** | Full test-set accuracy and class-level metrics |
+| 8 | **Confusion Matrices** | Side-by-side error analysis |
+| 9 | **Training Curves & LR Schedule** | Loss, accuracy, and LR schedule visualisation |
+| 10 | **Error Analysis** | Misclassification deep-dive |
+| 11 | **Efficiency & Deployment Analysis** | Parameters, size, latency, and throughput |
+| 12 | **Model Quantization (INT8)** | Dynamic quantisation experiments |
+| 13 | **Save Experiment Artifacts** | Export config, results, and metadata |
+| 14 | **Final Summary & Conclusions** | Consolidated findings across all models |
 
 <br/>
 
@@ -260,7 +292,7 @@ app.py                             Gradio demo — HF Spaces entry point
 model_utils.py                     Shared model architectures & inference
 benchmark_data.py                  Canonical benchmark metrics (single source of truth)
 predict.py                         CLI inference tools
-gradcam.py                         Grad-CAM visualisations
+gradcam.py                         Grad-CAM visualisations (CLI only)
 
 cifar10 image classification.ipynb Main 14-section notebook
 
@@ -276,16 +308,17 @@ tests/                             Pytest unit & integration tests (79 tests)
   test_gradcam.py  test_benchmark_data.py  test_checkpoint_remap.py  test_device.py
 
 results/                           Training results, confusion matrices, metadata
+assets/                            README screenshots and favicon
 examples/                          Example CIFAR-10 images for the live demo
-data/                              CIFAR-10 dataset (auto-downloaded via torchvision)
+artifacts/                         Saved run configuration (run_config.json)
 
 requirements.txt                   HF Spaces / Gradio dependencies
-requirements-dev.txt               Development dependencies
+requirements-dev.txt               Development dependencies (adds pytest on top of requirements.txt)
 runtime.txt                        Python version pin
 pytest.ini                         Pytest configuration
 ```
 
-> Model weights are hosted on [Hugging Face Hub](https://huggingface.co/mrpouyaalavi/cifar10-models) and downloaded automatically at runtime — no binaries in this repo.
+> `data/` (CIFAR-10 raw files) and `checkpoints/` (local `.pth` files) are git-ignored — the dataset auto-downloads via torchvision on first run, and deployed model weights are hosted on [Hugging Face Hub](https://huggingface.co/mrpouyaalavi/cifar10-models) and downloaded automatically at runtime. No binaries are committed to this repo.
 
 <br/>
 
@@ -331,9 +364,11 @@ python predict.py --image-dir path/to/images/ --model all --save results/predict
 
 ### Grad-CAM Visualisations
 
+CLI-only (`gradcam.py` supports `custom_cnn`, `mobilenet`, or `both` — ResNet-18 is not currently wired up in this script). Not available inside the Gradio app UI.
+
 ```bash
-python gradcam.py --model all --num-images 6
-python gradcam.py --model all --image-index 0 42 100 --save results/gradcam/
+python gradcam.py --model both --num-images 6
+python gradcam.py --model both --image-index 0 42 100 --save results/gradcam/
 ```
 
 ### Run Tests
@@ -359,6 +394,21 @@ pytest -q     # 79 tests
 | Main notebook | [cifar10 image classification.ipynb](./cifar10%20image%20classification.ipynb) |
 | Live demo | [Hugging Face Spaces](https://mrpouyaalavi-cifar-10-image-classification.hf.space) |
 | Model weights | [HF Hub — mrpouyaalavi/cifar10-models](https://huggingface.co/mrpouyaalavi/cifar10-models) |
+
+<br/>
+
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:0f172a,30:EE4C2C,60:F7931E,100:0f172a&height=2" width="100%"/>
+
+<br/>
+
+## ⚠️ Limitations
+
+- **CIFAR-10 is low-resolution (32×32) and dataset-specific.** Results here don't generalise to arbitrary real-world computer vision tasks, higher-resolution imagery, or open-set classification.
+- **Latency and throughput are hardware-dependent.** All CPU timings were measured on Apple Silicon (M-series); numbers will differ on other CPUs/GPUs and should be read as project benchmarks, not universal figures.
+- **Transfer learning relies on ImageNet pretraining.** MobileNetV2 and ResNet-18 inherit whatever biases and coverage gaps exist in ImageNet-1K; the accuracy gains reported here are conditional on that pretraining being available.
+- **The Gradio demo is a portfolio/educational artifact**, not a production computer-vision deployment — there's no batching, rate limiting, monitoring, or adversarial-input handling.
+- **The custom domain (`cifar10.pouyaalavi.dev`) is a DNS alias for the Hugging Face Space** and depends on the Space container staying awake; if the Space is asleep or down, the custom domain will be unavailable too.
+- **Grad-CAM and INT8 quantisation are not part of the deployed app** — they're available via CLI (`gradcam.py`) or in the notebook only.
 
 <br/>
 
