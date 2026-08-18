@@ -16,13 +16,13 @@
 
 <br/>
 
-# CIFAR-10 Image Classification — From Training to Deployment
+# CIFAR-10 Image Classification - From Training to Deployment
 
 > **An end-to-end deep learning portfolio project that trains, evaluates, and compares multiple architectures on the CIFAR-10 dataset, demonstrating the practical impact of transfer learning over a custom CNN baseline — and packaging the results into a live interactive demo.**
 
 This project goes beyond model training. It includes augmentation pipelines, cosine annealing scheduling, progressive unfreezing, INT8 quantisation experiments (notebook), Grad-CAM interpretability visualisations (CLI + notebook), CLI inference tools, and a Gradio demo deployed on Hugging Face Spaces — all documented in a structured Jupyter notebook.
 
-**[📓 Explore the Notebook](cifar10%20image%20classification.ipynb)** &nbsp;·&nbsp; **[🚀 Live Demo](https://cifar10.pouyaalavi.dev)** &nbsp;·&nbsp; **[📊 Key Results](#-key-results--performance-benchmarks)**
+**[📓 Explore the Notebook](cifar10%20image%20classification.ipynb)** &nbsp;·&nbsp; **[🚀 Live Demo](https://cifar10.leoalavi.dev)** &nbsp;·&nbsp; **[📊 Key Results](#-key-results--performance-benchmarks)**
 
 <br/>
 
@@ -156,7 +156,7 @@ Both transfer-learning models reach strong accuracy within 1–3 epochs because 
 | **Visualization** | Matplotlib (deployed) · Seaborn (notebook) |
 | **Interpretability** | Grad-CAM with PyTorch hooks — CLI (`gradcam.py`) + notebook only |
 | **Demo App** | Gradio ≥5.29 on Hugging Face Spaces |
-| **Model Weights** | Hugging Face Hub (`mrpouyaalavi/cifar10-models`) |
+| **Model Weights** | Hugging Face Hub (`leoalavi/cifar10-models`) |
 | **Hardware** | Auto-detected: CUDA / Apple Silicon MPS / CPU |
 
 ### Feature Status
@@ -265,7 +265,7 @@ Released under the **MIT License** — see [`LICENSE`](LICENSE) for details.
 
 | Name | Role |
 |:-----|:-----|
-| Pouya Alavi Naeini | Lead — ML pipeline, deployment, Gradio app |
+| Leo Alavi | Lead — ML pipeline, deployment, Gradio app |
 
 <br/>
 
@@ -325,7 +325,7 @@ pytest.ini                         Pytest configuration
 
 ```bash
 # Clone and install
-git clone https://github.com/mrpouyaalavi/CIFAR-10-Image-Classification.git
+git clone https://github.com/leoalavi/CIFAR-10-Image-Classification.git
 cd CIFAR-10-Image-Classification
 
 python -m venv .venv
@@ -395,7 +395,7 @@ pytest -q     # 79 tests
 - **Latency and throughput are hardware-dependent.** All CPU timings were measured on Apple Silicon (M-series); numbers will differ on other CPUs/GPUs and should be read as project benchmarks, not universal figures.
 - **Transfer learning relies on ImageNet pretraining.** MobileNetV2 and ResNet-18 inherit whatever biases and coverage gaps exist in ImageNet-1K; the accuracy gains reported here are conditional on that pretraining being available.
 - **The Gradio demo is a portfolio/educational artifact**, not a production computer-vision deployment — there's no batching, rate limiting, monitoring, or adversarial-input handling.
-- **The custom domain (`cifar10.pouyaalavi.dev`) is a DNS alias for the Hugging Face Space** and depends on the Space container staying awake; if the Space is asleep or down, the custom domain will be unavailable too.
+- **The custom domain (`cifar10.leoalavi.dev`) is a DNS alias for the Hugging Face Space** and depends on the Space container staying awake; if the Space is asleep or down, the custom domain will be unavailable too.
 - **Grad-CAM and INT8 quantisation are not part of the deployed app** — they're available via CLI (`gradcam.py`) or in the notebook only.
 
 <br/>
@@ -419,16 +419,16 @@ Built with the support of the open-source community. This project benefits from:
 ### `> ping --author`
 
 ```text
-> Target     : Pouya Alavi Naeini — Software Engineer | Applied AI/ML
+> Target     : Leo Alavi — Software Engineer | Applied AI/ML
 > University : Macquarie University, Sydney, NSW
 > Major      : B.IT — Artificial Intelligence & Web/App Development
 > Status     : [●] ONLINE — open to grad & junior opportunities
 ```
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Hugging_Face_Spaces-FFD21E?style=for-the-badge&logo=huggingface&logoColor=ffffff&labelColor=0f172a)](https://mrpouyaalavi-cifar-10-image-classification.hf.space)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-EE4C2C?style=for-the-badge&logo=linkedin&logoColor=ffffff&labelColor=0f172a)](https://www.linkedin.com/in/pouya-alavi/)
-[![GitHub](https://img.shields.io/badge/GitHub-Follow-F7931E?style=for-the-badge&logo=github&logoColor=ffffff&labelColor=0f172a)](https://github.com/mrpouyaalavi)
-[![Email](https://img.shields.io/badge/Email-Contact-f59e0b?style=for-the-badge&logo=gmail&logoColor=09090b&labelColor=0f172a)](mailto:pouya@pouyaalavi.dev)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-EE4C2C?style=for-the-badge&logo=linkedin&logoColor=ffffff&labelColor=0f172a)](https://www.linkedin.com/in/leo-alavi/)
+[![GitHub](https://img.shields.io/badge/GitHub-Follow-F7931E?style=for-the-badge&logo=github&logoColor=ffffff&labelColor=0f172a)](https://github.com/leoalavi)
+[![Email](https://img.shields.io/badge/Email-Contact-f59e0b?style=for-the-badge&logo=gmail&logoColor=09090b&labelColor=0f172a)](mailto:leo@leoalavi.dev)
 
 <br/>
 
